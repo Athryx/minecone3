@@ -7,6 +7,8 @@ use strum::IntoEnumIterator;
 use crate::blocks::BlockType;
 use crate::meshing::{BlockFaceType, TextureIdentifier, TexCoords, BlockModels};
 
+use super::material::GlobalTextureMap;
+
 /// Number of pixels in each block texture
 const TEXTURE_SIZE: u32 = 16;
 
@@ -57,6 +59,7 @@ pub fn poll_load_status(
 pub fn generate_texture_map(
     query: Query<(Entity, &TextureLoadJob)>,
     asset_server: Res<AssetServer>,
+    mut global_texture_map: ResMut<GlobalTextureMap>,
     mut textures: ResMut<Assets<Image>>,
     mut block_models: ResMut<BlockModels>,
     mut commands: Commands,
@@ -120,6 +123,10 @@ pub fn generate_texture_map(
     }
 
     let texture_map = Image::from_dynamic(texture_map, false);
+
+    // update temporary texture map to the real one
+    // updating the handle is fine, since the old handles that may be in use still reference the same resource
+    global_texture_map.0 = textures.set(&global_texture_map.0, texture_map);
 
     commands.entity(load_job_id).despawn();
 }
