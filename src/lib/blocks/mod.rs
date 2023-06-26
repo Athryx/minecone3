@@ -1,8 +1,10 @@
 use bytemuck::{bytes_of, bytes_of_mut};
 
-use crate::meshing::BlockModel;
+use crate::meshing::{BlockModel, BlockFace, BlockFaceType, TextureIdentifier};
 
 pub mod utils;
+mod dirt;
+use dirt::Dirt;
 
 const BLOCK_ID_MASK: u32 = 0xfff;
 const INLINE_BLOCK_HP_MASK: u32 = 0xfff000;
@@ -53,10 +55,10 @@ trait ExtendedBlock: BaseBlock {
 macro_rules! register_blocks {
     (
         inline {
-            $( $inline_blocks:ident ),+,
+            $( $inline_blocks:ident ),*,
         },
         extended {
-            $( $extended_blocks:ident ),+,
+            $( $extended_blocks:ident ),*,
         },
     ) => {
         use strum::{FromRepr, EnumIter};
@@ -87,29 +89,11 @@ macro_rules! register_blocks {
     };
 }
 
-#[derive(Default)]
-struct Test;
-
-impl BaseBlock for Test {
-    fn model() -> BlockModel {
-        todo!()
-    }
-}
-
-#[derive(Default)]
-struct Test2;
-
-impl BaseBlock for Test2 {
-    fn model() -> BlockModel {
-        todo!()
-    }
-}
-
 register_blocks! {
     inline {
-        Test,
+        Dirt,
     },
     extended {
-        Test2,
+        ,
     },
 }

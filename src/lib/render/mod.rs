@@ -8,11 +8,19 @@ use texture_map::*;
 
 use self::material::BlockMaterial;
 
+const SKY_COLOR: Color = Color::Rgba {
+    red: 0.1,
+    green: 0.2,
+    blue: 0.3,
+    alpha: 1.0,
+};
+
 pub struct RenderPlugin;
 
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<BlockModels>()
+            .insert_resource(ClearColor(SKY_COLOR))
             .add_asset::<BlockMaterial>()
             .add_startup_system(material::initialize_block_material)
             .add_state::<TextureLoadState>()

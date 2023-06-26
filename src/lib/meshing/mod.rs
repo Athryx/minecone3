@@ -11,14 +11,14 @@ pub struct TexCoords(pub Vec2);
 /// 
 /// Blocks should use the Path variant, the texture atlas will be stitched together at runtime,
 /// and the texture identifier will be converted to coordinates
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum TextureIdentifier {
-    Path(AssetPath<'static>),
+    Path(&'static str),
     Coordinates(TexCoords),
 }
 
 /// Represents the type of a block face
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum BlockFaceType {
     /// A square side of a block textured with the given texture
     Full(TextureIdentifier),
@@ -29,14 +29,14 @@ pub enum BlockFaceType {
 }
 
 /// A face of a block
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct BlockFace {
     pub rotation: Rotation,
     pub face_type: BlockFaceType,
 }
 
 /// The model of a block
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct BlockModel {
     pub faces: [BlockFace; 6],
     //custom_model: Option<TODO>,

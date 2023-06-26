@@ -111,11 +111,11 @@ pub fn generate_texture_map(
     for model in block_models.0.iter_mut() {
         for face in model.faces.iter_mut() {
             if let BlockFaceType::Full(ref mut texture_id) = face.face_type {
-                let TextureIdentifier::Path(asset_path) = texture_id else {
+                let TextureIdentifier::Path(asset_path) = *texture_id else {
                     panic!("block model had texture coordinates when asset path was expected");
                 };
 
-                let uv = asset_path_to_uv_map.get(asset_path).unwrap();
+                let uv = asset_path_to_uv_map.get(&asset_path.into()).unwrap();
 
                 *texture_id = TextureIdentifier::Coordinates(*uv);
             }
