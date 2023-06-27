@@ -1,9 +1,14 @@
 use bevy::prelude::*;
 use bevy::math::Vec4Swizzles;
 
+use crate::world::ChunkLoader;
+use crate::types::ChunkPos;
+
 const SPEED: f32 = 1.0;
 const FAST_SPEED: f32 = 20.0;
 const ROTATION_SPEED: f32 = 2.0;
+
+const RENDER_DISTANCE: UVec3 = UVec3::new(20, 10, 20);
 
 #[derive(Component, Default)]
 pub struct Controller {
@@ -21,7 +26,11 @@ pub struct Controller {
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn((Camera3dBundle::default(), Controller::default()));
+    commands.spawn((
+        Camera3dBundle::default(),
+        Controller::default(),
+        ChunkLoader::new(ChunkPos::new(0, 0, 0), RENDER_DISTANCE),
+    ));
 }
 
 fn handle_input(

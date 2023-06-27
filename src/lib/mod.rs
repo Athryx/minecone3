@@ -1,3 +1,5 @@
+#![feature(once_cell)]
+
 use bevy::prelude::*;
 
 mod blocks;
@@ -7,6 +9,7 @@ mod physics;
 mod render;
 mod types;
 mod world;
+mod worldgen;
 
 fn test(
     mut meshes: ResMut<Assets<Mesh>>,
@@ -19,7 +22,6 @@ fn test(
         transform: Transform::from_xyz(0.0, 0.0, -1.0),
         ..default()
     });
-    commands.init_resource::<AmbientLight>();
 }
 
 pub struct MineconePlugin;

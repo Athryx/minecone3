@@ -37,6 +37,15 @@ impl Block {
     fn state_mut(&mut self) -> &mut u8 {
         &mut bytes_of_mut(&mut self.0)[3]
     }
+
+    fn block_id(&self) -> u16 {
+        (self.0 & BLOCK_ID_MASK) as u16
+    }
+
+    fn block_type(&self) -> BlockType {
+        BlockType::from_repr(self.block_id())
+            .expect("invalid block id")
+    }
 }
 
 // Inline and extended blocks must implement this trait
@@ -82,6 +91,17 @@ macro_rules! register_blocks {
                     )*
                     $(
                         Self::$extended_blocks => $extended_blocks::model(),
+                    )*
+                }
+            }
+
+            pub fn is_inline(&self) -> bool {
+                match self {
+                    $(
+                        Self::$inline_blocks => true,
+                    )*
+                    $(
+                        Self::$extended_blocks => false,
                     )*
                 }
             }

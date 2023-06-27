@@ -2178,7 +2178,9 @@ dependencies = [
  "bytemuck",
  "dashmap",
  "derive_more",
+ "futures-lite",
  "image",
+ "parking_lot",
  "rustc-hash",
  "strum",
 ]

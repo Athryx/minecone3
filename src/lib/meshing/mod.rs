@@ -1,8 +1,9 @@
 use bevy::asset::AssetPath;
 use bevy::prelude::*;
+use strum::{FromRepr, EnumIter};
 
 use crate::blocks::utils::Rotation;
-use crate::world::BlockArray;
+use crate::world::{BlockArray, ChunkData};
 
 #[derive(Debug, Clone, Copy)]
 pub struct TexCoords(pub Vec2);
@@ -42,11 +43,22 @@ pub struct BlockModel {
     //custom_model: Option<TODO>,
 }
 
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, FromRepr, EnumIter)]
+enum Face {
+    Front,
+    Back,
+    Top,
+    Bottom,
+    Left,
+    Right,
+}
 
-/// All the models used by blocks, index the blodk model vec with the blocks id to get it model
+
+/// All the models used by blocks, index the block model vec with the blocks id to get it model
 #[derive(Debug, Default, Resource)]
 pub struct BlockModels(pub Vec<BlockModel>);
 
-pub fn mesh_blocks(blocks: BlockArray) -> Mesh {
+pub fn generate_mesh(blocks: Option<&ChunkData>, models: &[BlockModel]) -> Mesh {
     todo!()
 }

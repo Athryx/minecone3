@@ -7,6 +7,7 @@ use strum::IntoEnumIterator;
 use crate::blocks::BlockType;
 use crate::meshing::{BlockFaceType, TextureIdentifier, TexCoords, BlockModels};
 
+use super::BLOCK_MODELS;
 use super::material::GlobalTextureMap;
 
 /// Number of pixels in each block texture
@@ -121,6 +122,8 @@ pub fn generate_texture_map(
             }
         }
     }
+    // update block models global
+    BLOCK_MODELS.set(block_models.0.clone()).unwrap();
 
     let texture_map = Image::from_dynamic(texture_map, false);
 
