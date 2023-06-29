@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::blocks::Block;
+use crate::blocks::BlockStorage;
 
 pub const CHUNK_SIZE: usize = 32;
 
@@ -12,9 +12,15 @@ pub struct Chunk {
     pub load_count: u32,
 }
 
-pub type BlockArray = [[[Block; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE];
-
 #[derive(Debug)]
 pub struct ChunkData {
-    pub blocks: Box<BlockArray>,
+    pub blocks: BlockStorage,
+}
+
+impl From<BlockStorage> for ChunkData {
+    fn from(blocks: BlockStorage) -> Self {
+        ChunkData {
+            blocks,
+        }
+    }
 }

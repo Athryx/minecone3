@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use crate::{types::ChunkPos};
 
 mod chunk;
-pub use chunk::{Chunk, ChunkData, BlockArray, CHUNK_SIZE};
+pub use chunk::{Chunk, ChunkData, CHUNK_SIZE};
 mod chunk_loader;
 pub use chunk_loader::ChunkLoader;
 mod world;

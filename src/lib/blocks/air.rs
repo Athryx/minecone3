@@ -1,9 +1,13 @@
 use super::*;
 
 #[derive(Default)]
-pub struct Dirt;
+pub struct Air;
 
-impl BaseBlock for Dirt {
+static AIR_PROPERTIES: BlockProperties = BlockProperties {
+    max_hp: 0,
+};
+
+impl BaseBlock for Air {
     fn model() -> BlockModel {
         let dirt_face = BlockFace {
             rotation: utils::Rotation::Deg0,
@@ -17,7 +21,7 @@ impl BaseBlock for Dirt {
 
     fn properties() -> BlockProperties {
         BlockProperties {
-            max_hp: 10,
+            max_hp: 0
         }
     }
 }

@@ -1,7 +1,7 @@
 use std::hash::BuildHasherDefault;
 
 use bevy::prelude::*;
-use derive_more::{Deref, DerefMut, Add, Sub, Mul, Div};
+use derive_more::{Add, Sub, Mul, Div};
 use dashmap::DashMap;
 use rustc_hash::FxHasher;
 
@@ -9,7 +9,7 @@ use crate::world::CHUNK_SIZE;
 
 pub type FxDashMap<K, V> = DashMap<K, V, BuildHasherDefault<FxHasher>>;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Add, Sub, Mul, Div)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Deref, DerefMut, Add, Sub, Mul, Div)]
 pub struct ChunkPos(pub IVec3);
 
 impl ChunkPos {
@@ -60,7 +60,7 @@ impl From<ChunkPos> for Transform {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Add, Sub, Mul, Div)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Deref, DerefMut, Add, Sub, Mul, Div)]
 pub struct BlockPos(pub IVec3);
 
 impl From<ChunkPos> for BlockPos {

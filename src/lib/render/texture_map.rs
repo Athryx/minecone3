@@ -13,6 +13,10 @@ use super::material::GlobalTextureMap;
 /// Number of pixels in each block texture
 const TEXTURE_SIZE: u32 = 16;
 
+/// Number of blocks along each axis of the texture map
+// make sure to keep this up to date with the shaders texture size
+const TEXTURE_MAP_SIZE: u32 = 4;
+
 #[derive(Debug, Component)]
 pub struct TextureLoadJob(Vec<Handle<Image>>);
 
@@ -69,21 +73,22 @@ pub fn generate_texture_map(
 
     // the length of the texture map in block textures
     // the texture map is a square
-    let texture_map_size = (loaded_textures.0.len() as f32).sqrt().ceil() as u32;
     let mut texture_map = DynamicImage::new_rgba8(
-        texture_map_size * TEXTURE_SIZE,
-        texture_map_size * TEXTURE_SIZE
+        TEXTURE_MAP_SIZE * TEXTURE_SIZE,
+        TEXTURE_MAP_SIZE * TEXTURE_SIZE
     );
 
     // the uv offset between each texture
-    let texture_step_size = 1.0 / texture_map_size as f32;
+    let texture_step_size = 1.0 / TEXTURE_MAP_SIZE as f32;
 
     let mut asset_path_to_uv_map = HashMap::new();
 
     // stitch textures together
     for (i, texture_handle) in loaded_textures.0.iter().enumerate() {
-        let x = i as u32 % texture_map_size;
-        let y = i as u32 / texture_map_size;
+        let x = i as u32 % TEXTURE_MAP_SIZE;
+        let y = i as u32 / TEXTURE_MAP_SIZE;
+
+        assert!(y < TEXTURE_MAP_SIZE, "too many textures for texture map of size {}", TEXTURE_MAP_SIZE);
 
         let uv = TexCoords(Vec2::new(x as f32, y as f32) * texture_step_size);
 

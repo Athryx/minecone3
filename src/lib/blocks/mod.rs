@@ -2,7 +2,11 @@ use bytemuck::{bytes_of, bytes_of_mut};
 
 use crate::meshing::{BlockModel, BlockFace, BlockFaceType, TextureIdentifier};
 
+mod block_storage;
+pub use block_storage::BlockStorage;
 pub mod utils;
+mod air;
+use air::Air;
 mod dirt;
 use dirt::Dirt;
 
@@ -28,6 +32,19 @@ const DATA_ID_MASK: u32 = 0xfffff000;
 pub struct Block(u32);
 
 impl Block {
+    fn new_inline(block_type: BlockType, hp: u16, state: u8) -> Self {
+        assert!(block_type.is_inline());
+
+        let block_type = block_type as u32;
+        let hp = ((hp as u32) << 12) & INLINE_BLOCK_HP_MASK;
+        let state = (state as u32) << 24;
+        Block(block_type | hp | state)
+    }
+
+    fn new_from_type(block_type: BlockType) -> Self {
+        Self::new_inline(block_type, block_type.properties().max_hp, 0)
+    }
+
     // returns a reference to the state byte of an inline block
     fn state(&self) -> &u8 {
         &bytes_of(&self.0)[3]
@@ -48,9 +65,22 @@ impl Block {
     }
 }
 
+impl Default for Block {
+    fn default() -> Self {
+        Self::new_inline(BlockType::Air, 0, 0)
+    }
+}
+
+/// Describes the properties of the block
+#[derive(Debug, Clone, Copy)]
+pub struct BlockProperties {
+    pub max_hp: u16,
+}
+
 // Inline and extended blocks must implement this trait
 trait BaseBlock {
     fn model() -> BlockModel;
+    fn properties() -> BlockProperties;
 }
 
 /// Blocks which don't need any extra state should implement this trait
@@ -95,6 +125,17 @@ macro_rules! register_blocks {
                 }
             }
 
+            pub fn properties(&self) -> BlockProperties {
+                match self {
+                    $(
+                        Self::$inline_blocks => $inline_blocks::properties(),
+                    )*
+                    $(
+                        Self::$extended_blocks => $extended_blocks::properties(),
+                    )*
+                }
+            }
+
             pub fn is_inline(&self) -> bool {
                 match self {
                     $(
@@ -111,6 +152,7 @@ macro_rules! register_blocks {
 
 register_blocks! {
     inline {
+        Air,
         Dirt,
     },
     extended {
