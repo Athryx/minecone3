@@ -1,6 +1,7 @@
 #![feature(once_cell)]
 
 use bevy::prelude::*;
+use render::GlobalBlockMaterial;
 
 mod blocks;
 mod camera_controls;
@@ -35,4 +36,10 @@ impl Plugin for MineconePlugin {
             .add_plugin(render::RenderPlugin)
             .add_startup_system(test);
     }
+}
+
+/// All the system sets used when in the game
+#[derive(Debug, Clone, PartialEq, Eq, Hash, SystemSet)]
+pub enum GameSet {
+    Main,
 }

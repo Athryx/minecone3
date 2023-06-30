@@ -148,8 +148,14 @@ pub struct ChunkLoadTask(Task<(Option<ChunkData>, Mesh)>);
 /// Loads and meshes the chunk at the given position
 fn load_chunk(chunk_pos: ChunkPos) -> (Option<ChunkData>, Mesh) {
     let chunk_data = generate_chunk(chunk_pos);
+    println!("generated chunk at chunk_pos: {:?}", chunk_pos);
 
-    let mesh = generate_mesh(chunk_data.as_ref(), block_models());
+    let blocks = chunk_data
+        .as_ref()
+        .map(|chunk| &chunk.blocks);
+
+    let mesh = generate_mesh(blocks, block_models());
+    println!("meshed chunk at chunk_pos: {:?}", chunk_pos);
 
     (chunk_data, mesh)
 }
@@ -166,11 +172,14 @@ pub fn queue_generate_chunks(
         if loader.has_changed() {
             let current_region = loader.current_loaded_region();
             let last_region = loader.last_loaded_region();
+            println!("last loader region: {:?}", last_region);
+            println!("current loader region: {:?}", current_region);
 
             // FIXME: don't use this naive implementation
             for chunk_pos in current_region.iter_chunks() {
                 if !last_region.contains_chunk(chunk_pos) {
                     // load chunks
+                    println!("loading chunk: {:?}", chunk_pos);
                     let load_task = compute_pool.spawn(async move {
                         load_chunk(chunk_pos)
                     });
@@ -193,6 +202,7 @@ pub fn queue_generate_chunks(
             for chunk_pos in last_region.iter_chunks() {
                 if !current_region.contains_chunk(chunk_pos) {
                     // unload chunks
+                    println!("unloading chunk: {:?}", chunk_pos);
                     let mut chunk = world.chunks.get_mut(&chunk_pos).unwrap();
 
                     if chunk.load_count == 1 {

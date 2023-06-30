@@ -7,6 +7,9 @@ use rustc_hash::FxHasher;
 
 use crate::world::CHUNK_SIZE;
 
+/// Size of block in meters
+pub const BLOCK_SIZE: f32 = 0.5;
+
 pub type FxDashMap<K, V> = DashMap<K, V, BuildHasherDefault<FxHasher>>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Deref, DerefMut, Add, Sub, Mul, Div)]
@@ -63,6 +66,19 @@ impl From<ChunkPos> for Transform {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Deref, DerefMut, Add, Sub, Mul, Div)]
 pub struct BlockPos(pub IVec3);
 
+impl BlockPos {
+    pub fn new(x: i32, y: i32, z: i32) -> Self {
+        BlockPos(IVec3::new(x, y, z))
+    }
+
+    pub fn is_chunk_local(&self) -> bool {
+        const CSIZE: i32 = CHUNK_SIZE as i32;
+        self.x >= 0 && self.x < CSIZE
+            && self.y >= 0 && self.y < CSIZE
+            && self.z >= 0 && self.z < CSIZE
+    }
+}
+
 impl From<ChunkPos> for BlockPos {
     fn from(chunk_pos: ChunkPos) -> Self {
         BlockPos(chunk_pos.0 * CHUNK_SIZE as i32)
@@ -77,6 +93,6 @@ impl From<Vec3> for BlockPos {
 
 impl From<BlockPos> for Vec3 {
     fn from(block_pos: BlockPos) -> Self {
-        block_pos.0.as_vec3() / 2.0
+        block_pos.0.as_vec3() * BLOCK_SIZE
     }
 }

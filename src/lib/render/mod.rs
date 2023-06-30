@@ -2,7 +2,7 @@ use std::sync::OnceLock;
 
 use bevy::prelude::*;
 
-use crate::meshing::{BlockModels, BlockModel};
+use crate::{meshing::{BlockModels, BlockModel}, GameSet};
 
 mod material;
 pub use material::*;
@@ -42,11 +42,12 @@ impl Plugin for RenderPlugin {
                 color: Color::WHITE,
                 brightness: 0.5,
             })
-            .add_asset::<BlockMaterial>()
+            .add_plugin(MaterialPlugin::<BlockMaterial>::default())
             .add_startup_system(material::initialize_block_material)
             .add_state::<TextureLoadState>()
+            .configure_set(GameSet::Main.run_if(in_state(TextureLoadState::Done)))
             .add_system(load_textures.in_schedule(OnEnter(TextureLoadState::Loading)))
             .add_system(poll_load_status.in_set(OnUpdate(TextureLoadState::Loading)))
-            .add_system(generate_texture_map.in_schedule(OnEnter(TextureLoadState::Done)));
+            .add_system(generate_texture_map.in_schedule(OnExit(TextureLoadState::Loading)));
     }
 }

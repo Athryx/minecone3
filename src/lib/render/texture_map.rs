@@ -1,11 +1,11 @@
 use bevy::asset::LoadState;
 use bevy::prelude::*;
-use bevy::utils::HashMap;
+use bevy::utils::{HashMap, HashSet};
 use image::{DynamicImage, GenericImage};
 use strum::IntoEnumIterator;
 
 use crate::blocks::BlockType;
-use crate::meshing::{BlockFaceType, TextureIdentifier, TexCoords, BlockModels};
+use crate::meshing::{BlockFaceType, BlockModels, FaceTextureData};
 
 use super::BLOCK_MODELS;
 use super::material::GlobalTextureMap;
@@ -18,26 +18,22 @@ const TEXTURE_SIZE: u32 = 16;
 const TEXTURE_MAP_SIZE: u32 = 4;
 
 #[derive(Debug, Component)]
-pub struct TextureLoadJob(Vec<Handle<Image>>);
+pub struct TextureLoadJob(HashSet<Handle<Image>>);
 
 pub fn load_textures(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut block_models: ResMut<BlockModels>,
 ) {
-    let mut load_jobs = Vec::new();
+    let mut load_jobs = HashSet::new();
 
     for block_type in BlockType::iter() {
         let model = block_type.model();
         block_models.0.push(model.clone());
 
         for face in model.faces.iter() {
-            if let BlockFaceType::Full(ref texture) = face.face_type {
-                let TextureIdentifier::Path(asset_path) = texture else {
-                    panic!("block model had texture coordinates when asset path was expected");
-                };
-
-                load_jobs.push(asset_server.load(asset_path.clone()));
+            if let BlockFaceType::Full(texture) = face.face_type {
+                load_jobs.insert(asset_server.load(texture));
             }
         }
     }
@@ -81,7 +77,7 @@ pub fn generate_texture_map(
     // the uv offset between each texture
     let texture_step_size = 1.0 / TEXTURE_MAP_SIZE as f32;
 
-    let mut asset_path_to_uv_map = HashMap::new();
+    let mut asset_path_to_texture_data_map = HashMap::new();
 
     // stitch textures together
     for (i, texture_handle) in loaded_textures.0.iter().enumerate() {
@@ -90,7 +86,7 @@ pub fn generate_texture_map(
 
         assert!(y < TEXTURE_MAP_SIZE, "too many textures for texture map of size {}", TEXTURE_MAP_SIZE);
 
-        let uv = TexCoords(Vec2::new(x as f32, y as f32) * texture_step_size);
+        let uv = Vec2::new(x as f32, y as f32) * texture_step_size;
 
         // TODO: stitch textures
         let texture = textures
@@ -110,20 +106,18 @@ pub fn generate_texture_map(
 
         let asset_path = asset_server.get_handle_path(texture_handle).unwrap();
 
-        asset_path_to_uv_map.insert(asset_path, uv);
+        asset_path_to_texture_data_map.insert(asset_path, FaceTextureData {
+            uv_base: uv,
+            texture_map_index: i,
+        });
     }
 
     // update block models with uv coordinates
     for model in block_models.0.iter_mut() {
         for face in model.faces.iter_mut() {
-            if let BlockFaceType::Full(ref mut texture_id) = face.face_type {
-                let TextureIdentifier::Path(asset_path) = *texture_id else {
-                    panic!("block model had texture coordinates when asset path was expected");
-                };
-
-                let uv = asset_path_to_uv_map.get(&asset_path.into()).unwrap();
-
-                *texture_id = TextureIdentifier::Coordinates(*uv);
+            if let BlockFaceType::Full(texture) = face.face_type {
+                let texture_data = asset_path_to_texture_data_map.get(&texture.into()).unwrap();
+                face.texture_data = Some(*texture_data);
             }
         }
     }

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{types::ChunkPos};
+use crate::{types::ChunkPos, GameSet};
 
 mod chunk;
 pub use chunk::{Chunk, ChunkData, CHUNK_SIZE};
@@ -20,8 +20,11 @@ pub struct WorldPlugin;
 impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<World>()
-            .add_system(chunk_loader::move_chunk_loader)
-            .add_system(chunk_loader::queue_generate_chunks)
-            .add_system(chunk_loader::poll_chunk_load_tasks);
+            .add_systems((
+                chunk_loader::move_chunk_loader,
+                // run this before queue generate chunks so it will run next frame, which will give command buffer time to flush
+                chunk_loader::poll_chunk_load_tasks.before(chunk_loader::queue_generate_chunks),
+                chunk_loader::queue_generate_chunks,
+            ).in_set(GameSet::Main));
     }
 }

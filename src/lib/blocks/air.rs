@@ -9,13 +9,14 @@ static AIR_PROPERTIES: BlockProperties = BlockProperties {
 
 impl BaseBlock for Air {
     fn model() -> BlockModel {
-        let dirt_face = BlockFace {
+        let air_face = BlockFace {
             rotation: utils::Rotation::Deg0,
-            face_type: BlockFaceType::Full(TextureIdentifier::Path("textures/dirt.png")),
+            face_type: BlockFaceType::Empty,
+            texture_data: None,
         };
 
         BlockModel {
-            faces: [dirt_face; 6],
+            faces: [air_face; 6],
         }
     }
 

@@ -1,6 +1,6 @@
 use bytemuck::{bytes_of, bytes_of_mut};
 
-use crate::meshing::{BlockModel, BlockFace, BlockFaceType, TextureIdentifier};
+use crate::meshing::{BlockModel, BlockFace, BlockFaceType};
 
 mod block_storage;
 pub use block_storage::BlockStorage;
@@ -55,7 +55,7 @@ impl Block {
         &mut bytes_of_mut(&mut self.0)[3]
     }
 
-    fn block_id(&self) -> u16 {
+    pub fn block_id(&self) -> u16 {
         (self.0 & BLOCK_ID_MASK) as u16
     }
 

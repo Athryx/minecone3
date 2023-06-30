@@ -39,7 +39,11 @@ impl BlockStorage {
         }
 
         *old_block = block;
-    } 
+    }
+
+    pub fn get(&self, block_pos: BlockPos) -> &Block {
+        &self.blocks[block_pos.x as usize][block_pos.y as usize][block_pos.z as usize]
+    }
 
     pub fn get_mut(&mut self, block_pos: BlockPos) -> &mut Block {
         &mut self.blocks[block_pos.x as usize][block_pos.y as usize][block_pos.z as usize]

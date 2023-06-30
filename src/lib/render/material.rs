@@ -32,18 +32,18 @@ impl Material for BlockMaterial {
     }
 
     fn specialize(
-        pipeline: &MaterialPipeline<Self>,
+        _pipeline: &MaterialPipeline<Self>,
         descriptor: &mut RenderPipelineDescriptor,
         layout: &MeshVertexBufferLayout,
-        key: MaterialPipelineKey<Self>,
+        _key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        let vertex_layout = layout.get_layout(&[
+        /*let vertex_layout = layout.get_layout(&[
             Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
             ATTRIBUTE_UV_BASE.at_shader_location(1),
             ATTRIBUTE_FACE_COUNT.at_shader_location(2),
         ])?;
 
-        descriptor.vertex.buffers = vec![vertex_layout];
+        descriptor.vertex.buffers = vec![vertex_layout];*/
 
         Ok(())
     }
