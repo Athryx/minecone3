@@ -145,58 +145,51 @@ impl FaceMeshData {
     fn new(face: BlockFace, position: BlockPos, face_count: Vec2, face_direction: FaceDirection) -> Self {
         let position = Vec3::from(position);
 
-        // all 8 possible corners of a cube
-        const XN_YN_ZN: Vec3 = Vec3::new(0.0, 0.0, 0.0);
-        const ZN_YN_ZP: Vec3 = Vec3::new(0.0, 0.0, BLOCK_SIZE);
-        const ZN_YP_ZN: Vec3 = Vec3::new(0.0, BLOCK_SIZE, 0.0);
-        const ZN_YP_ZP: Vec3 = Vec3::new(0.0, BLOCK_SIZE, BLOCK_SIZE);
-        const XP_YN_ZN: Vec3 = Vec3::new(BLOCK_SIZE, 0.0, 0.0);
-        const XP_YN_ZP: Vec3 = Vec3::new(BLOCK_SIZE, 0.0, BLOCK_SIZE);
-        const XP_YP_ZN: Vec3 = Vec3::new(BLOCK_SIZE, BLOCK_SIZE, 0.0);
-        const ZP_YP_ZP: Vec3 = Vec3::new(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+        let fx = face_count.x * BLOCK_SIZE;
+        let fy = face_count.y * BLOCK_SIZE;
 
         let (tl_vertex, tr_vertex, bl_vertex, br_vertex) = match face_direction {
             FaceDirection::Front => (
                 // when looking at front, up is direction of positive y axis
-                ZP_YP_ZP,
-                ZN_YP_ZP,
-                XP_YN_ZP,
-                ZN_YN_ZP,
+                Vec3::new(fx, fy, BLOCK_SIZE),
+                Vec3::new(0.0, fy, BLOCK_SIZE),
+                Vec3::new(fx, 0.0, BLOCK_SIZE),
+                Vec3::new(0.0, 0.0, BLOCK_SIZE),
             ),
             FaceDirection::Back => (
                 // when looking at back, up is direction of positive y axis
-                ZN_YP_ZN,
-                XP_YP_ZN,
-                XN_YN_ZN,
-                XP_YN_ZN,
+                Vec3::new(0.0, fy, 0.0),
+                Vec3::new(fx, fy, 0.0),
+                Vec3::new(0.0, 0.0, 0.0),
+                Vec3::new(fx, 0.0, 0.0),
             ),
             FaceDirection::Top => (
                 // when looking at top, up is direction of positive z axis
-                ZN_YP_ZP,
-                ZP_YP_ZP,
-                ZN_YP_ZN,
-                XP_YP_ZN,
+                Vec3::new(0.0, BLOCK_SIZE, fy),
+                Vec3::new(fx, BLOCK_SIZE, fy),
+                Vec3::new(0.0, BLOCK_SIZE, 0.0),
+                Vec3::new(fx, BLOCK_SIZE, 0.0),
             ),
             FaceDirection::Bottom => (
                 // when looking at bottom, up is direction of positive z axis
-                XP_YN_ZP,
-                ZN_YN_ZP,
-                XP_YN_ZN,
-                XN_YN_ZN,
+                Vec3::new(fx, 0.0, fy),
+                Vec3::new(0.0, 0.0, fy),
+                Vec3::new(fx, 0.0, 0.0),
+                Vec3::new(0.0, 0.0, 0.0),
             ),
             FaceDirection::Left => (
                 // when looking at laft, up is direction of positive y axis
-                ZN_YP_ZP,
-                ZN_YP_ZN,
-                ZN_YN_ZP,
-                XN_YN_ZN,
+                Vec3::new(0.0, fx, fy),
+                Vec3::new(0.0, fx, 0.0),
+                Vec3::new(0.0, 0.0, fy),
+                Vec3::new(0.0, 0.0, 0.0),
             ),
             FaceDirection::Right => (
                 // when looking at right, up is direction of positive y axis
-                XP_YP_ZN,
-                ZP_YP_ZP,
-                XP_YN_ZN,
-                XP_YN_ZP,
+                Vec3::new(BLOCK_SIZE, fx, 0.0),
+                Vec3::new(BLOCK_SIZE, fx, fy),
+                Vec3::new(BLOCK_SIZE, 0.0, 0.0),
+                Vec3::new(BLOCK_SIZE, 0.0, fy),
             ),
         };
 
@@ -244,11 +237,6 @@ pub fn generate_mesh(blocks: Option<&BlockStorage>, models: &[BlockModel]) -> Me
 
     if let Some(blocks) = blocks {
         for face in FaceDirection::iter() {
-            //let mut face_mesh = FaceMeshData::new(models[1].get_face(face), BlockPos::new(0, 0, 0), face);
-            //face_mesh.face_count = Vec2::new(2.0, 2.0);
-            //println!("face: {:?}", face);
-            //println!("face_mesh: {:#?}", face_mesh);
-            //face_mesh.insert_into_bufers(&mut buffers);
             for layer in 0..(CHUNK_SIZE as i32) {
                 mesh_layer(blocks, models, &mut buffers, &mut visit_map, face, layer);
             }
