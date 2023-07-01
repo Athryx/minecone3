@@ -43,7 +43,6 @@ impl Plugin for RenderPlugin {
                 brightness: 0.5,
             })
             .add_plugin(MaterialPlugin::<BlockMaterial>::default())
-            .add_startup_system(material::initialize_block_material)
             .add_state::<TextureLoadState>()
             .configure_set(GameSet::Main.run_if(in_state(TextureLoadState::Done)))
             .add_system(load_textures.in_schedule(OnEnter(TextureLoadState::Loading)))

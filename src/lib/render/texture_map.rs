@@ -1,5 +1,7 @@
 use bevy::asset::LoadState;
 use bevy::prelude::*;
+use bevy::render::render_resource::{SamplerDescriptor, AddressMode, FilterMode, CompareFunction};
+use bevy::render::texture::ImageSampler;
 use bevy::utils::{HashMap, HashSet};
 use image::{DynamicImage, GenericImage};
 use strum::IntoEnumIterator;
@@ -8,7 +10,7 @@ use crate::blocks::BlockType;
 use crate::meshing::{BlockFaceType, BlockModels, FaceTextureData};
 
 use super::BLOCK_MODELS;
-use super::material::GlobalTextureMap;
+use super::material::{GlobalBlockMaterial, BlockMaterial};
 
 /// Number of pixels in each block texture
 const TEXTURE_SIZE: u32 = 16;
@@ -60,8 +62,8 @@ pub fn poll_load_status(
 pub fn generate_texture_map(
     query: Query<(Entity, &TextureLoadJob)>,
     asset_server: Res<AssetServer>,
-    mut global_texture_map: ResMut<GlobalTextureMap>,
     mut textures: ResMut<Assets<Image>>,
+    mut materials: ResMut<Assets<BlockMaterial>>,
     mut block_models: ResMut<BlockModels>,
     mut commands: Commands,
 ) {
@@ -124,11 +126,20 @@ pub fn generate_texture_map(
     // update block models global
     BLOCK_MODELS.set(block_models.0.clone()).unwrap();
 
-    let texture_map = Image::from_dynamic(texture_map, false);
+    let mut texture_map = Image::from_dynamic(texture_map, true);
+    texture_map.sampler_descriptor = ImageSampler::Descriptor(SamplerDescriptor {
+        address_mode_u: AddressMode::ClampToEdge,
+        address_mode_v: AddressMode::ClampToEdge,
+        address_mode_w: AddressMode::ClampToEdge,
+        mag_filter: FilterMode::Nearest,
+        min_filter: FilterMode::Nearest,
+        ..Default::default()
+    });
 
-    // update temporary texture map to the real one
-    // updating the handle is fine, since the old handles that may be in use still reference the same resource
-    global_texture_map.0 = textures.set(&global_texture_map.0, texture_map);
+    let block_material = materials.add(BlockMaterial {
+        texture_map: textures.add(texture_map),
+    });
+    commands.insert_resource(GlobalBlockMaterial(block_material));
 
     commands.entity(load_job_id).despawn();
 }

@@ -9,7 +9,7 @@ const SPEED: f32 = 1.0;
 const FAST_SPEED: f32 = 20.0;
 const ROTATION_SPEED: f32 = 2.0;
 
-const RENDER_DISTANCE: UVec3 = UVec3::new(2, 1, 2);
+const RENDER_DISTANCE: UVec3 = UVec3::new(10, 5, 10);
 
 #[derive(Component, Default)]
 pub struct Controller {

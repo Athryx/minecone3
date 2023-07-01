@@ -37,13 +37,13 @@ impl Material for BlockMaterial {
         layout: &MeshVertexBufferLayout,
         _key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        /*let vertex_layout = layout.get_layout(&[
+        let vertex_layout = layout.get_layout(&[
             Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
             ATTRIBUTE_UV_BASE.at_shader_location(1),
             ATTRIBUTE_FACE_COUNT.at_shader_location(2),
         ])?;
 
-        descriptor.vertex.buffers = vec![vertex_layout];*/
+        descriptor.vertex.buffers = vec![vertex_layout];
 
         Ok(())
     }
@@ -66,21 +66,4 @@ pub const ATTRIBUTE_FACE_COUNT: MeshVertexAttribute = MeshVertexAttribute::new(
 );
 
 #[derive(Debug, Resource)]
-pub struct GlobalTextureMap(pub Handle<Image>);
-
-#[derive(Debug, Resource)]
 pub struct GlobalBlockMaterial(pub Handle<BlockMaterial>);
-
-pub fn initialize_block_material(
-    mut materials: ResMut<Assets<BlockMaterial>>,
-    mut images: ResMut<Assets<Image>>,
-    mut commands: Commands,
-) {
-    let texture_map = images.add(Image::default());
-    commands.insert_resource(GlobalTextureMap(texture_map.clone()));
-
-    let block_material = materials.add(BlockMaterial {
-        texture_map,
-    });
-    commands.insert_resource(GlobalBlockMaterial(block_material));
-}

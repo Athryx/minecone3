@@ -142,7 +142,7 @@ struct FaceMeshData {
 }
 
 impl FaceMeshData {
-    fn new(face: BlockFace, position: BlockPos, face_direction: FaceDirection) -> Self {
+    fn new(face: BlockFace, position: BlockPos, face_count: Vec2, face_direction: FaceDirection) -> Self {
         let position = Vec3::from(position);
 
         // all 8 possible corners of a cube
@@ -206,7 +206,7 @@ impl FaceMeshData {
             bl_vertex: bl_vertex + position,
             br_vertex: br_vertex + position,
             uv_base: face.texture_data.expect("uv not created for texture map yet").uv_base,
-            face_count: Vec2::new(1.0, 1.0),
+            face_count,
             rotation: face.rotation,
         }
     }
@@ -244,12 +244,13 @@ pub fn generate_mesh(blocks: Option<&BlockStorage>, models: &[BlockModel]) -> Me
 
     if let Some(blocks) = blocks {
         for face in FaceDirection::iter() {
-            let face_mesh = FaceMeshData::new(models[1].get_face(face), BlockPos::new(0, 0, 0), face);
-            println!("face: {:?}", face);
-            println!("face_mesh: {:#?}", face_mesh);
-            face_mesh.insert_into_bufers(&mut buffers);
+            //let mut face_mesh = FaceMeshData::new(models[1].get_face(face), BlockPos::new(0, 0, 0), face);
+            //face_mesh.face_count = Vec2::new(2.0, 2.0);
+            //println!("face: {:?}", face);
+            //println!("face_mesh: {:#?}", face_mesh);
+            //face_mesh.insert_into_bufers(&mut buffers);
             for layer in 0..(CHUNK_SIZE as i32) {
-                //mesh_layer(blocks, models, &mut buffers, &mut visit_map, face, layer);
+                mesh_layer(blocks, models, &mut buffers, &mut visit_map, face, layer);
             }
         }
     }
@@ -352,6 +353,7 @@ fn mesh_layer(
                     break;
                 }
 
+                visit_map.visit(x, y_pos);
                 y_len += 1;
             }
 
@@ -363,22 +365,47 @@ fn mesh_layer(
                 }
 
                 for y_pos in 0..y_len {
-                    if !block_face.can_merge_with(&get_model(x_pos, y_pos + y).get_face(face)) || is_occluded(x_pos, y_pos + y) {
+                    if is_occluded(x_pos, y_pos + y) {
+                        // this can be marked as visited, because since it is occluded it will never generate a face
+                        visit_map.visit(x_pos, y_pos + y);
                         break 'outer;
                     }
+
+                    if !block_face.can_merge_with(&get_model(x_pos, y_pos + y).get_face(face)) {
+                        // don't mark it as visited here, we still might generate face later
+                        break 'outer;
+                    }
+                }
+
+                // mark faces in x direction that could merge as visited
+                for y_pos in 0..y_len {
+                    visit_map.visit(x_pos, y_pos + y);
                 }
 
                 x_len += 1;
             }
 
+
+            let face_count = match face {
+                FaceDirection::Front
+                    | FaceDirection::Back
+                    | FaceDirection::Left
+                    | FaceDirection::Right
+                    | FaceDirection::Top
+                    | FaceDirection::Bottom => Vec2::new(x_len as f32, y_len as f32),
+            };
+
             // TODO: make this cleaner
             let face_mesh_data = FaceMeshData::new(
                 block_face,
                 get_block_pos(x, y),
+                face_count,
                 face,
             );
 
             face_mesh_data.insert_into_bufers(buffers);
+
+            y += y_len;
         }
     }
 }
