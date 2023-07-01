@@ -1,4 +1,4 @@
-use bevy::{prelude::*, tasks::{Task, AsyncComputeTaskPool}};
+use bevy::{prelude::*, tasks::{Task, AsyncComputeTaskPool}, pbr::wireframe::Wireframe};
 use futures_lite::future;
 
 use crate::{types::ChunkPos, render::{GlobalBlockMaterial, block_models}, worldgen::generate_chunk, meshing::generate_mesh};
@@ -214,6 +214,7 @@ pub fn queue_generate_chunks(
     }
 }
 
+// TODO: fix performance issues with this
 pub fn poll_chunk_load_tasks(
     mut world: ResMut<World>,
     block_material: Res<GlobalBlockMaterial>,

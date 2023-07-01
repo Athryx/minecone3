@@ -1,7 +1,8 @@
 #![feature(once_cell)]
 
+use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
-use render::GlobalBlockMaterial;
+use bevy::pbr::wireframe::WireframePlugin;
 
 mod blocks;
 mod camera_controls;
@@ -30,6 +31,9 @@ pub struct MineconePlugin;
 impl Plugin for MineconePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Msaa::Sample4)
+            .add_plugin(WireframePlugin::default())
+            .add_plugin(LogDiagnosticsPlugin::default())
+            .add_plugin(FrameTimeDiagnosticsPlugin::default())
             .add_plugin(camera_controls::ControllerPlugin)
             .add_plugin(physics::PhysicsPlugin)
             .add_plugin(world::WorldPlugin)
