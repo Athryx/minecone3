@@ -1,6 +1,6 @@
-use bevy::{prelude::*, tasks::{Task, AsyncComputeTaskPool}, pbr::wireframe::Wireframe};
-use futures_lite::future;
+use bevy::prelude::*;
 
+use crate::task::{Task, TaskPool};
 use crate::{types::ChunkPos, render::{GlobalBlockMaterial, block_models}, worldgen::generate_chunk, meshing::generate_mesh};
 use super::{World, EcsChunk, Chunk, chunk::ChunkData};
 
@@ -164,7 +164,7 @@ pub fn queue_generate_chunks(
     mut loaders: Query<&mut ChunkLoader>,
     mut commands: Commands,
 ) {
-    let compute_pool = AsyncComputeTaskPool::get();
+    let task_pool = TaskPool::get();
 
     for mut loader in loaders.iter_mut() {
         if loader.has_changed() {
@@ -175,7 +175,7 @@ pub fn queue_generate_chunks(
             for chunk_pos in current_region.iter_chunks() {
                 if !last_region.contains_chunk(chunk_pos) {
                     // load chunks
-                    let load_task = compute_pool.spawn(async move {
+                    let load_task = task_pool.spawn(move || {
                         load_chunk(chunk_pos)
                     });
 
@@ -219,11 +219,11 @@ pub fn poll_chunk_load_tasks(
     mut world: ResMut<World>,
     block_material: Res<GlobalBlockMaterial>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut query: Query<(Entity, &EcsChunk, &mut ChunkLoadTask)>,
+    mut query: Query<(Entity, &EcsChunk, &ChunkLoadTask)>,
     mut commands: Commands,
 ) {
-    for (entity, ecs_chunk, mut load_task) in query.iter_mut() {
-        if let Some((chunk_data, mesh)) = future::block_on(future::poll_once(&mut load_task.0)) {
+    for (entity, ecs_chunk, load_task) in query.iter_mut() {
+        /*if let Some((chunk_data, mesh)) = load_task.0.poll() {
             let mesh_handle = meshes.add(mesh);
 
             commands.entity(entity)
@@ -236,6 +236,6 @@ pub fn poll_chunk_load_tasks(
                 .remove::<ChunkLoadTask>();
 
             world.chunks.get_mut(&ecs_chunk.0).unwrap().data = chunk_data;
-        }
+        }*/
     }
 }

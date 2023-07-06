@@ -1,4 +1,5 @@
 #![feature(once_cell)]
+#![feature(box_into_inner)]
 
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
@@ -9,6 +10,7 @@ mod camera_controls;
 mod meshing;
 mod physics;
 mod render;
+mod task;
 mod types;
 mod world;
 mod worldgen;
