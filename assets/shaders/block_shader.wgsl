@@ -39,15 +39,10 @@ fn vertex(vertex_input: VertexInput) -> VertexOutput {
 
 @fragment
 fn fragment(fragment_input: VertexOutput) -> @location(0) vec4<f32> {
-	//return vec4<f32>(1.0, 1.0, 1.0, 1.0);
 	var block_coord = vec2<f32>(
 		fragment_input.face_count.x % 1.0,
 		fragment_input.face_count.y % 1.0,
 	);
 
-	//return vec4<f32>(block_coord.x, 0.0, block_coord.y, 1.0);
-	//return vec4<f32>(fragment_input.uv_base, 0.0, 1.0);
-
 	return textureSample(texture_map, texture_sampler, fragment_input.uv_base + BLOCK_UV_SIZE * block_coord);
-	//return textureSample(texture_map, texture_sampler, block_coord);
 }

@@ -130,6 +130,12 @@ struct MeshBuffers {
     index_buffer: Vec<u32>,
 }
 
+impl MeshBuffers {
+    fn is_empty(&self) -> bool {
+        self.index_buffer.is_empty()
+    }
+}
+
 #[derive(Debug)]
 struct FaceMeshData {
     tl_vertex: Vec3,
@@ -204,7 +210,7 @@ impl FaceMeshData {
         }
     }
 
-    fn insert_into_bufers(&self, buffers: &mut MeshBuffers,) {
+    fn insert_into_bufers(&self, buffers: &mut MeshBuffers) {
         let index_base = buffers.position_buffer.len() as u32;
 
         buffers.position_buffer.extend_from_slice(&[
@@ -230,8 +236,10 @@ impl FaceMeshData {
     }
 }
 
-pub fn generate_mesh(blocks: Option<&BlockStorage>, models: &[BlockModel]) -> Mesh {
-    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+/// Generates a mesh for the given chunk, or returns None if the mesh has no faces
+// An empty mesh cannot be used here because the custom shader needs all the attributes to exist,
+// and if an attribute exists but it has an empty array, this causes a ton of lag in bevy for some reason
+pub fn generate_mesh(blocks: Option<&BlockStorage>, models: &[BlockModel]) -> Option<Mesh> {
     let mut buffers = MeshBuffers::default();
     let mut visit_map = VisitedBlockMap::new();
 
@@ -243,12 +251,18 @@ pub fn generate_mesh(blocks: Option<&BlockStorage>, models: &[BlockModel]) -> Me
         }
     }
 
-    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, buffers.position_buffer);
-    mesh.insert_attribute(ATTRIBUTE_UV_BASE, buffers.uv_base_buffer);
-    mesh.insert_attribute(ATTRIBUTE_FACE_COUNT, buffers.face_count_buffer);
-    mesh.set_indices(Some(Indices::U32(buffers.index_buffer)));
+    if buffers.is_empty() {
+        None
+    } else {
+        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
 
-    mesh
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, buffers.position_buffer);
+        mesh.insert_attribute(ATTRIBUTE_UV_BASE, buffers.uv_base_buffer);
+        mesh.insert_attribute(ATTRIBUTE_FACE_COUNT, buffers.face_count_buffer);
+        mesh.set_indices(Some(Indices::U32(buffers.index_buffer)));
+
+        Some(mesh)
+    }
 }
 
 fn block_pos_for_layer(face: FaceDirection, layer: i32, x: i32, y: i32) -> BlockPos {

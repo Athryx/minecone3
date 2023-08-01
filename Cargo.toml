@@ -9,10 +9,12 @@ path = "src/lib/mod.rs"
 [dependencies]
 bevy = { version = "0.10.1", features = ["dynamic_linking"] }
 bytemuck = { version = "1.13.1", features = ["derive"] }
+crossbeam = "0.8.2"
 dashmap = "5.4.0"
 derive_more = "0.99.17"
 futures-lite = "1.13.0"
 image = "0.24.6"
+num_cpus = "1.16.0"
 parking_lot = "0.12.1"
 rustc-hash = "1.1.0"
 strum = { version = "0.25", features = ["derive"] }

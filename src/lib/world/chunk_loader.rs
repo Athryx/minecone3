@@ -143,10 +143,10 @@ pub fn move_chunk_loader(
 
 /// A task that is currently loading a chunk
 #[derive(Component)]
-pub struct ChunkLoadTask(Task<(Option<ChunkData>, Mesh)>);
+pub struct ChunkLoadTask(Task<(Option<ChunkData>, Option<Mesh>)>);
 
 /// Loads and meshes the chunk at the given position
-fn load_chunk(chunk_pos: ChunkPos) -> (Option<ChunkData>, Mesh) {
+fn load_chunk(chunk_pos: ChunkPos) -> (Option<ChunkData>, Option<Mesh>) {
     let chunk_data = generate_chunk(chunk_pos);
 
     let blocks = chunk_data
@@ -197,7 +197,7 @@ pub fn queue_generate_chunks(
             for chunk_pos in last_region.iter_chunks() {
                 if !current_region.contains_chunk(chunk_pos) {
                     // unload chunks
-                    let mut chunk = world.chunks.get_mut(&chunk_pos).unwrap();
+                    let chunk = world.chunks.get_mut(&chunk_pos).unwrap();
 
                     if chunk.load_count == 1 {
                         commands.entity(chunk.entity).despawn();
@@ -214,7 +214,6 @@ pub fn queue_generate_chunks(
     }
 }
 
-// TODO: fix performance issues with this
 pub fn poll_chunk_load_tasks(
     mut world: ResMut<World>,
     block_material: Res<GlobalBlockMaterial>,
@@ -223,19 +222,21 @@ pub fn poll_chunk_load_tasks(
     mut commands: Commands,
 ) {
     for (entity, ecs_chunk, load_task) in query.iter_mut() {
-        /*if let Some((chunk_data, mesh)) = load_task.0.poll() {
-            let mesh_handle = meshes.add(mesh);
+        if let Some((chunk_data, mesh)) = load_task.0.poll() {
+            let mut entity_commands = commands.entity(entity);
+            entity_commands.remove::<ChunkLoadTask>();
 
-            commands.entity(entity)
-                .insert(MaterialMeshBundle {
+            if let Some(mesh) = mesh {
+                let mesh_handle = meshes.add(mesh);
+                entity_commands.insert(MaterialMeshBundle {
                     mesh: mesh_handle,
                     material: block_material.0.clone(),
                     transform: ecs_chunk.0.into(),
                     ..Default::default()
-                })
-                .remove::<ChunkLoadTask>();
+                });
+            }
 
             world.chunks.get_mut(&ecs_chunk.0).unwrap().data = chunk_data;
-        }*/
+        }
     }
 }

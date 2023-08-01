@@ -12,10 +12,6 @@ fn main() {
                 }),
                 ..Default::default()
             })
-            .set(AssetPlugin {
-                asset_folder: String::from("/home/jack/projects/games/minecone3/assets"),
-                watch_for_changes: false,
-            })
         )
         .add_plugin(MineconePlugin)
         .run();
