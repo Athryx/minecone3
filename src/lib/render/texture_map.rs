@@ -1,6 +1,6 @@
-use bevy::asset::LoadState;
+use bevy::asset::{LoadState, AssetPath};
 use bevy::prelude::*;
-use bevy::render::render_resource::{SamplerDescriptor, AddressMode, FilterMode, CompareFunction};
+use bevy::render::render_resource::{SamplerDescriptor, AddressMode, FilterMode};
 use bevy::render::texture::ImageSampler;
 use bevy::utils::{HashMap, HashSet};
 use image::{DynamicImage, GenericImage};
@@ -118,7 +118,7 @@ pub fn generate_texture_map(
     for model in block_models.0.iter_mut() {
         for face in model.faces.iter_mut() {
             if let BlockFaceType::Full(texture) = face.face_type {
-                let texture_data = asset_path_to_texture_data_map.get(&texture.into()).unwrap();
+                let texture_data = asset_path_to_texture_data_map.get(&AssetPath::from(texture)).unwrap();
                 face.texture_data = Some(*texture_data);
             }
         }

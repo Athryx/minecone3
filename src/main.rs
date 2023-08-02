@@ -13,6 +13,6 @@ fn main() {
                 ..Default::default()
             })
         )
-        .add_plugin(MineconePlugin)
+        .add_plugins(MineconePlugin)
         .run();
 }

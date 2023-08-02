@@ -3,10 +3,6 @@ use super::*;
 #[derive(Default)]
 pub struct Air;
 
-static AIR_PROPERTIES: BlockProperties = BlockProperties {
-    max_hp: 0,
-};
-
 impl BaseBlock for Air {
     fn model() -> BlockModel {
         let air_face = BlockFace {

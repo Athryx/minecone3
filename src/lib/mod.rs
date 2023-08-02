@@ -33,14 +33,18 @@ pub struct MineconePlugin;
 impl Plugin for MineconePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Msaa::Sample4)
-            .add_plugin(WireframePlugin::default())
-            .add_plugin(LogDiagnosticsPlugin::default())
-            .add_plugin(FrameTimeDiagnosticsPlugin::default())
-            .add_plugin(camera_controls::ControllerPlugin)
-            .add_plugin(physics::PhysicsPlugin)
-            .add_plugin(world::WorldPlugin)
-            .add_plugin(render::RenderPlugin)
-            .add_startup_system(test);
+            .add_plugins((
+                WireframePlugin::default(),
+                LogDiagnosticsPlugin::default(),
+                FrameTimeDiagnosticsPlugin::default(),
+            ))
+            .add_plugins((
+                camera_controls::ControllerPlugin,
+                physics::PhysicsPlugin,
+                world::WorldPlugin,
+                render::RenderPlugin,
+            ))
+            .add_systems(Startup, test);
     }
 }
 

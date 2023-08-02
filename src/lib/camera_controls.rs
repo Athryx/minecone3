@@ -46,8 +46,8 @@ fn handle_input(
         controller.right_pressed = keys.pressed(KeyCode::D);
 
         controller.up_pressed = keys.pressed(KeyCode::Space);
-        controller.down_pressed = keys.pressed(KeyCode::LAlt)
-            || keys.pressed(KeyCode::RAlt);
+        controller.down_pressed = keys.pressed(KeyCode::AltLeft)
+            || keys.pressed(KeyCode::AltRight);
         
 
         controller.rotate_up_pressed = keys.pressed(KeyCode::Up);
@@ -56,8 +56,8 @@ fn handle_input(
         controller.rotate_left_pressed = keys.pressed(KeyCode::Left);
         controller.rotate_right_pressed = keys.pressed(KeyCode::Right);
 
-        controller.sprint_pressed = keys.pressed(KeyCode::LShift)
-            || keys.pressed(KeyCode::RShift);
+        controller.sprint_pressed = keys.pressed(KeyCode::ShiftLeft)
+            || keys.pressed(KeyCode::ShiftRight);
     }
 }
 
@@ -149,8 +149,9 @@ pub struct ControllerPlugin;
 
 impl Plugin for ControllerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(setup)
+        app.add_systems(Startup, setup)
             .add_systems(
+                Update,
                 (
                     handle_input,
                     move_camera,

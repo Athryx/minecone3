@@ -1,6 +1,6 @@
 #import bevy_pbr::mesh_view_bindings
-#import bevy_pbr::mesh_bindings
-#import bevy_pbr::mesh_functions
+#import bevy_pbr::mesh_bindings mesh
+#import bevy_pbr::mesh_functions mesh_position_local_to_clip
 
 // 1 / 4 (because texture map is size 4)
 const BLOCK_UV_SIZE: f32 = 0.25;

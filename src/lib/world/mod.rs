@@ -20,11 +20,14 @@ pub struct WorldPlugin;
 impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<World>()
-            .add_systems((
+            .add_systems(
+                Update,
+                (
                 chunk_loader::move_chunk_loader,
                 // run this before queue generate chunks so it will run next frame, which will give command buffer time to flush
                 chunk_loader::poll_chunk_load_tasks.before(chunk_loader::queue_generate_chunks),
                 chunk_loader::queue_generate_chunks,
-            ).in_set(GameSet::Main));
+                ).in_set(GameSet::Main)
+            );
     }
 }

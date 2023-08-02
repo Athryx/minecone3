@@ -11,10 +11,10 @@ use bevy::{
         mesh::{MeshVertexAttribute, MeshVertexBufferLayout},
     },
     pbr::{MaterialPipeline, MaterialPipelineKey},
-    reflect::TypeUuid,
+    reflect::{TypeUuid, TypePath},
 };
 
-#[derive(Debug, Clone, AsBindGroup, TypeUuid)]
+#[derive(Debug, Clone, AsBindGroup, TypeUuid, TypePath)]
 #[uuid = "059e5370-ad92-4732-91c1-828f20d64025"]
 pub struct BlockMaterial {
     #[texture(0)]

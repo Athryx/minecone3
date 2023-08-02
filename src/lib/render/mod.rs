@@ -42,11 +42,11 @@ impl Plugin for RenderPlugin {
                 color: Color::WHITE,
                 brightness: 0.5,
             })
-            .add_plugin(MaterialPlugin::<BlockMaterial>::default())
+            .add_plugins(MaterialPlugin::<BlockMaterial>::default())
             .add_state::<TextureLoadState>()
-            .configure_set(GameSet::Main.run_if(in_state(TextureLoadState::Done)))
-            .add_system(load_textures.in_schedule(OnEnter(TextureLoadState::Loading)))
-            .add_system(poll_load_status.in_set(OnUpdate(TextureLoadState::Loading)))
-            .add_system(generate_texture_map.in_schedule(OnExit(TextureLoadState::Loading)));
+            .configure_set(Update, GameSet::Main.run_if(in_state(TextureLoadState::Done)))
+            .add_systems(OnEnter(TextureLoadState::Loading), load_textures)
+            .add_systems(Update, poll_load_status.run_if(in_state(TextureLoadState::Loading)))
+            .add_systems(OnExit(TextureLoadState::Loading), generate_texture_map);
     }
 }
