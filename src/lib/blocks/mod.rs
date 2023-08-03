@@ -59,9 +59,13 @@ impl Block {
         (self.0 & BLOCK_ID_MASK) as u16
     }
 
-    fn block_type(&self) -> BlockType {
+    pub fn block_type(&self) -> BlockType {
         BlockType::from_repr(self.block_id())
             .expect("invalid block id")
+    }
+
+    pub fn is_air(&self) -> bool {
+        self.block_type() == BlockType::Air
     }
 }
 

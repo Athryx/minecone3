@@ -1,4 +1,5 @@
 use std::hash::BuildHasherDefault;
+use std::ops::{Index, IndexMut};
 
 use bevy::prelude::*;
 use derive_more::{Add, Sub, Mul, Div};
@@ -11,6 +12,14 @@ use crate::world::CHUNK_SIZE;
 pub const BLOCK_SIZE: f32 = 0.5;
 
 pub type FxDashMap<K, V> = DashMap<K, V, BuildHasherDefault<FxHasher>>;
+
+#[repr(u8)]
+#[derive(Debug, Clone, Copy)]
+pub enum VecAxis {
+    X = 0,
+    Y = 1,
+    Z = 2,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Deref, DerefMut, Add, Sub, Mul, Div)]
 pub struct ChunkPos(pub IVec3);
@@ -30,6 +39,20 @@ impl ChunkPos {
 
     pub fn z(&self) -> i32 {
         self.0.z
+    }
+}
+
+impl Index<VecAxis> for ChunkPos {
+    type Output = i32;
+
+    fn index(&self, index: VecAxis) -> &Self::Output {
+        &self.0[index as usize]
+    }
+}
+
+impl IndexMut<VecAxis> for ChunkPos {
+    fn index_mut(&mut self, index: VecAxis) -> &mut Self::Output {
+        &mut self.0[index as usize]
     }
 }
 
@@ -77,6 +100,30 @@ impl BlockPos {
             && self.y >= 0 && self.y < CSIZE
             && self.z >= 0 && self.z < CSIZE
     }
+
+    pub fn as_chunk_local(&self) -> Self {
+        BlockPos(self.0.map(|elem| {
+            if elem >= 0 {
+                elem % CHUNK_SIZE as i32
+            } else {
+                CHUNK_SIZE as i32 + ((elem + 1) % CHUNK_SIZE as i32) - 1
+            }
+        }))
+    }
+}
+
+impl Index<VecAxis> for BlockPos {
+    type Output = i32;
+
+    fn index(&self, index: VecAxis) -> &Self::Output {
+        &self.0[index as usize]
+    }
+}
+
+impl IndexMut<VecAxis> for BlockPos {
+    fn index_mut(&mut self, index: VecAxis) -> &mut Self::Output {
+        &mut self.0[index as usize]
+    }
 }
 
 impl From<ChunkPos> for BlockPos {
@@ -95,4 +142,75 @@ impl From<BlockPos> for Vec3 {
     fn from(block_pos: BlockPos) -> Self {
         block_pos.0.as_vec3() * BLOCK_SIZE
     }
+}
+
+pub trait VecExt {
+    type NumType;
+
+    fn map<F: FnMut(Self::NumType) -> Self::NumType>(&self, f: F) -> Self;
+}
+
+impl VecExt for Vec3 {
+    type NumType = f32;
+
+    fn map<F: FnMut(Self::NumType) -> Self::NumType>(&self, mut f: F) -> Self {
+        Vec3::new(f(self.x), f(self.y), f(self.z))
+    }
+}
+
+impl Index<VecAxis> for Vec3 {
+    type Output = f32;
+
+    fn index(&self, index: VecAxis) -> &Self::Output {
+        &self[index as usize]
+    }
+}
+
+impl IndexMut<VecAxis> for Vec3 {
+    fn index_mut(&mut self, index: VecAxis) -> &mut Self::Output {
+        &mut self[index as usize]
+    }
+}
+
+impl VecExt for IVec3 {
+    type NumType = i32;
+
+    fn map<F: FnMut(Self::NumType) -> Self::NumType>(&self, mut f: F) -> Self {
+        IVec3::new(f(self.x), f(self.y), f(self.z))
+    }
+}
+
+impl Index<VecAxis> for IVec3 {
+    type Output = i32;
+
+    fn index(&self, index: VecAxis) -> &Self::Output {
+        &self[index as usize]
+    }
+}
+
+impl IndexMut<VecAxis> for IVec3 {
+    fn index_mut(&mut self, index: VecAxis) -> &mut Self::Output {
+        &mut self[index as usize]
+    }
+}
+
+#[macro_export]
+macro_rules! vec3_map_many {
+    ($f:expr, $out_vec:ident, $( $vecs:ident ),+) => {
+        $out_vec::new($f(
+            $(
+                $vecs.x,
+            )*
+        ),
+        $f(
+            $(
+                $vecs.y,
+            )*
+        ),
+        $f(
+            $(
+                $vecs.z,
+            )*
+        ))
+    };
 }

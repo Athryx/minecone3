@@ -1,14 +1,16 @@
 #![feature(lazy_cell)]
 #![feature(box_into_inner)]
+#![feature(let_chains)]
 
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::pbr::wireframe::WireframePlugin;
 
 mod blocks;
-mod camera_controls;
+mod items;
 mod meshing;
 mod physics;
+mod player;
 mod render;
 mod task;
 mod types;
@@ -39,7 +41,7 @@ impl Plugin for MineconePlugin {
                 FrameTimeDiagnosticsPlugin::default(),
             ))
             .add_plugins((
-                camera_controls::ControllerPlugin,
+                player::PlayerPlugin,
                 physics::PhysicsPlugin,
                 world::WorldPlugin,
                 render::RenderPlugin,

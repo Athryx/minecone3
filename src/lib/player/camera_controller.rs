@@ -9,8 +9,6 @@ const SPEED: f32 = 1.0;
 const FAST_SPEED: f32 = 20.0;
 const ROTATION_SPEED: f32 = 2.0;
 
-const RENDER_DISTANCE: UVec3 = UVec3::new(10, 5, 10);
-
 #[derive(Component, Default)]
 pub struct Controller {
     forward_pressed: bool,
@@ -24,14 +22,6 @@ pub struct Controller {
     rotate_left_pressed: bool,
     rotate_right_pressed: bool,
     sprint_pressed: bool,
-}
-
-fn setup(mut commands: Commands) {
-    commands.spawn((
-        Camera3dBundle::default(),
-        Controller::default(),
-        ChunkLoader::new(ChunkPos::new(0, 0, 0), RENDER_DISTANCE),
-    ));
 }
 
 fn handle_input(
@@ -149,13 +139,12 @@ pub struct ControllerPlugin;
 
 impl Plugin for ControllerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup)
-            .add_systems(
-                Update,
-                (
-                    handle_input,
-                    move_camera,
-                ).chain().in_set(GameSet::Main)
-            );
+        app.add_systems(
+            Update,
+            (
+                handle_input,
+                move_camera,
+            ).chain().in_set(GameSet::Main)
+        );
     }
 }
