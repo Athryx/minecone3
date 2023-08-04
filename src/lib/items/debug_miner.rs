@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use crate::types::*;
+use crate::blocks::BlockType;
 use crate::world::World;
 use super::*;
 
@@ -18,6 +19,8 @@ fn use_item(
             let Some(hit_result) = world.raycast(transform.to_ray(), DEBUG_MINER_REACH) else {
                 continue;
             };
+
+            world.new_block(hit_result.block_pos, BlockType::Air);
         }
     }
 }

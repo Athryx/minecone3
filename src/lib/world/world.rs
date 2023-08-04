@@ -1,8 +1,8 @@
-
 use bevy::{prelude::*, utils::HashMap};
+use parking_lot::MutexGuard;
 
-use crate::{types::*, vec3_map_many, blocks::Block};
-use super::chunk::Chunk;
+use crate::{types::*, vec3_map_many, blocks::{Block, BlockType}};
+use super::{chunk::Chunk, ChunkData};
 
 #[derive(Debug, Default, Resource)]
 pub struct World {
@@ -16,9 +16,16 @@ pub struct RayHitInfo {
 }
 
 impl World {
-    pub fn get_block(&self, block_pos: BlockPos) -> Option<&Block> {
-        let chunk = self.chunks.get(&ChunkPos::from(block_pos))?;
-        Some(chunk.data.as_ref()?.blocks.get(block_pos.as_chunk_local()))
+    /// Sets the block at the given position to the given block type
+    /// 
+    /// Returns a copy of the block on sucess, or `None` on failure
+    /// 
+    /// This should only be used for one off accessess
+    /// If repeted accesses are needed, use [`ChunkLockCache`] directly
+    pub fn new_block(&self, block_pos: BlockPos, block_type: BlockType) -> Option<Block> {
+        ChunkLockCache::new(self)
+            .new_block(block_pos, block_type)
+            .copied()
     }
 
     pub fn raycast(&self, ray: Ray, max_length: f32) -> Option<RayHitInfo> {
@@ -54,6 +61,8 @@ impl World {
             }
         }, Vec3, ray.direction, ray_offset);
 
+        let mut chunk_lock = ChunkLockCache::new(self);
+
         loop {
             let next_intercept_axis = if next_intercept_time.x < next_intercept_time.y && next_intercept_time.x < next_intercept_time.z {
                 VecAxis::X
@@ -74,12 +83,70 @@ impl World {
             }
 
             // ray has hit
-            if let Some(block) = self.get_block(block_pos) && !block.is_air() {
+            if let Some(block) = chunk_lock.get_block(block_pos) && !block.is_air() {
                 return Some(RayHitInfo {
                     position: ray.get_point(current_time),
                     block_pos,
                 });
             }
         }
+    }
+}
+
+/// Caches the last lock chunk so block accessess around the same area do not need to repeatedly re lock the chunk
+struct ChunkLockCache<'world> {
+    world: &'world World,
+    inner: Option<ChunkLockCacheInner<'world>>,
+}
+
+struct ChunkLockCacheInner<'world> {
+    lock: MutexGuard<'world, Option<ChunkData>>,
+    last_chunk_pos: ChunkPos,
+}
+
+impl<'a> ChunkLockCache<'a> {
+    fn new(world: &'a World) -> Self {
+        ChunkLockCache {
+            world,
+            inner: None,
+        }
+    }
+
+    fn get_chunk_data_mut(&mut self) -> Option<&mut ChunkData> {
+        (&mut self.inner.as_mut()?.lock).as_mut()
+    }
+
+    fn lock_chunk(&mut self, chunk_pos: ChunkPos) -> Option<&mut ChunkData> {
+        if let Some(ref inner) = self.inner && inner.last_chunk_pos == chunk_pos {
+            // correct chunk is already locked
+        } else {
+            let chunk = self.world.chunks.get(&chunk_pos)?;
+
+            self.inner = Some(ChunkLockCacheInner {
+                lock: chunk.data.lock(),
+                last_chunk_pos: chunk_pos,
+            });
+        }
+
+        self.get_chunk_data_mut()
+    }
+
+    fn get_block(&mut self, block_pos: BlockPos) -> Option<&Block> {
+        let chunk_data = self.lock_chunk(ChunkPos::from(block_pos))?;
+
+        Some(chunk_data.blocks.get(block_pos.as_chunk_local()))
+    }
+
+    fn get_block_mut(&mut self, block_pos: BlockPos) -> Option<&mut Block> {
+        let chunk_data = self.lock_chunk(ChunkPos::from(block_pos))?;
+
+        Some(chunk_data.blocks.get_mut(block_pos.as_chunk_local()))
+    }
+
+    // TODO: return result indicating success or failure
+    fn new_block(&mut self, block_pos: BlockPos, block_type: BlockType) -> Option<&mut Block> {
+        let chunk_data = self.lock_chunk(ChunkPos::from(block_pos))?;
+
+        Some(chunk_data.blocks.new_block(block_pos.as_chunk_local(), block_type))
     }
 }

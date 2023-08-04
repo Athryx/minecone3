@@ -20,25 +20,26 @@ impl BlockStorage {
         }
     }
 
-    /// Replaces the old block at the given position with a block of the new type
-    pub fn new_block(&mut self, pos: BlockPos, block_type: BlockType) {
+    /// Replaces the old block at the given position with a block of the new type, and returns a reference to the block
+    pub fn new_block(&mut self, pos: BlockPos, block_type: BlockType) -> &mut Block {
         let block = if block_type.is_inline() {
             Block::new_from_type(block_type)
         } else {
             todo!()
         };
 
-        self.set(pos, block);
+        self.set(pos, block)
     }
 
     // handles cleaning up any extended data
-    fn set(&mut self, block_pos: BlockPos, block: Block) {
+    fn set(&mut self, block_pos: BlockPos, block: Block) -> &mut Block {
         let old_block = self.get_mut(block_pos);
         if !old_block.block_type().is_inline() {
             todo!("clean up extended data")
         }
 
         *old_block = block;
+        old_block
     }
 
     pub fn get(&self, block_pos: BlockPos) -> &Block {

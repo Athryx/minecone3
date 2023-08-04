@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use parking_lot::Mutex;
 
 use crate::task::{Task, TaskPool};
 use crate::{types::ChunkPos, render::{GlobalBlockMaterial, block_models}, worldgen::generate_chunk, meshing::generate_mesh};
@@ -185,7 +186,7 @@ pub fn queue_generate_chunks(
                     )).id();
 
                     let chunk = Chunk {
-                        data: None,
+                        data: Mutex::new(None),
                         entity: chunk_entity,
                         load_count: 1,
                     };
@@ -236,7 +237,7 @@ pub fn poll_chunk_load_tasks(
                 });
             }
 
-            world.chunks.get_mut(&ecs_chunk.0).unwrap().data = chunk_data;
+            *world.chunks.get(&ecs_chunk.0).unwrap().data.lock() = chunk_data;
         }
     }
 }
