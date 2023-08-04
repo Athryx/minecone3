@@ -1,5 +1,7 @@
+use bevy::input::mouse::MouseMotion;
 use bevy::prelude::*;
 use bevy::math::Vec4Swizzles;
+use bevy::window::CursorGrabMode;
 
 use crate::GameSet;
 use crate::world::ChunkLoader;
@@ -8,6 +10,7 @@ use crate::types::ChunkPos;
 const SPEED: f32 = 1.0;
 const FAST_SPEED: f32 = 20.0;
 const ROTATION_SPEED: f32 = 2.0;
+const MOUSE_ROTATION_SPEED: f32 = 0.001;
 
 #[derive(Component, Default)]
 pub struct Controller {
@@ -17,14 +20,12 @@ pub struct Controller {
     right_pressed: bool,
     up_pressed: bool,
     down_pressed: bool,
-    rotate_up_pressed: bool,
-    rotate_down_pressed: bool,
-    rotate_left_pressed: bool,
-    rotate_right_pressed: bool,
+    horizantal_rotation: f32,
+    verticle_rotation: f32,
     sprint_pressed: bool,
 }
 
-fn handle_input(
+fn handle_keyboard_input(
     keys: Res<Input<KeyCode>>,
     mut query: Query<&mut Controller>,
 ) {
@@ -38,16 +39,27 @@ fn handle_input(
         controller.up_pressed = keys.pressed(KeyCode::Space);
         controller.down_pressed = keys.pressed(KeyCode::AltLeft)
             || keys.pressed(KeyCode::AltRight);
-        
-
-        controller.rotate_up_pressed = keys.pressed(KeyCode::Up);
-        controller.rotate_down_pressed = keys.pressed(KeyCode::Down);
-
-        controller.rotate_left_pressed = keys.pressed(KeyCode::Left);
-        controller.rotate_right_pressed = keys.pressed(KeyCode::Right);
 
         controller.sprint_pressed = keys.pressed(KeyCode::ShiftLeft)
             || keys.pressed(KeyCode::ShiftRight);
+    }
+}
+
+fn handle_mouse_input(
+    mut mouse_motion: EventReader<MouseMotion>,
+    mut controllers: Query<&mut Controller>,
+) {
+    let mut mouse_delta = Vec2::ZERO;
+
+    for motion_event in mouse_motion.iter() {
+        mouse_delta += motion_event.delta;
+    }
+
+    mouse_delta *= MOUSE_ROTATION_SPEED;
+
+    for mut controller in controllers.iter_mut() {
+        controller.horizantal_rotation = mouse_delta.x;
+        controller.verticle_rotation = mouse_delta.y;
     }
 }
 
@@ -96,8 +108,6 @@ fn move_camera(
             camera_transform.translation -= camera_up_norm * distance_moved;
         }
 
-        let angle_rotated = delta * ROTATION_SPEED;
-
         let mut forward4 = Vec4::new(
             camera_forward.x,
             camera_forward.y,
@@ -105,29 +115,16 @@ fn move_camera(
             0.0,
         );
 
-        if controller.rotate_up_pressed {
-            let verticle_rotation = Mat4::from_axis_angle(camera_right_norm, angle_rotated);
-            let forward_temp = verticle_rotation * forward4;
-            if forward_temp.xyz().normalize().dot(up) < 0.98 {
-                forward4 = forward_temp;
-            }
-        }
-        if controller.rotate_down_pressed {
-            let verticle_rotation = Mat4::from_axis_angle(camera_right_norm, -angle_rotated);
-            let forward_temp = verticle_rotation * forward4;
-            if forward_temp.xyz().normalize().dot(up) > -0.98 {
-                forward4 = forward_temp;
-            }
+        let verticle_rotation = Mat4::from_axis_angle(camera_right_norm, -controller.verticle_rotation);
+        let forward_temp = verticle_rotation * forward4;
+
+        // stop camera from rotating all the way around top or bottom
+        if forward_temp.xyz().normalize().dot(up).abs() < 0.98 {
+            forward4 = forward_temp;
         }
 
-        if controller.rotate_left_pressed {
-            let horizantal_rotation = Mat4::from_axis_angle(up, angle_rotated);
-            forward4 = horizantal_rotation * forward4;
-        }
-        if controller.rotate_right_pressed {
-            let horizantal_rotation = Mat4::from_axis_angle(up, -angle_rotated);
-            forward4 = horizantal_rotation * forward4;
-        }
+        let horizantal_rotation = Mat4::from_axis_angle(up, -controller.horizantal_rotation);
+        forward4 = horizantal_rotation * forward4;
 
         let forward = forward4.xyz();
 
@@ -135,16 +132,24 @@ fn move_camera(
     }
 }
 
+fn grab_mouse(mut query: Query<&mut Window>) {
+    let mut window = query.single_mut();
+
+    window.cursor.visible = false;
+    window.cursor.grab_mode = CursorGrabMode::Locked;
+}
+
 pub struct ControllerPlugin;
 
 impl Plugin for ControllerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (
-                handle_input,
-                move_camera,
-            ).chain().in_set(GameSet::Main)
-        );
+        app.add_systems(Startup, grab_mouse)
+            .add_systems(
+                Update,
+                (
+                    (handle_keyboard_input, handle_mouse_input),
+                    move_camera,
+                ).chain().in_set(GameSet::Main)
+            );
     }
 }
