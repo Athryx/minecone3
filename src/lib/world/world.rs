@@ -11,8 +11,8 @@ pub struct World {
 
 #[derive(Debug)]
 pub struct RayHitInfo {
-    position: Vec3,
-    block_pos: BlockPos,
+    pub position: Vec3,
+    pub block_pos: BlockPos,
 }
 
 impl World {
@@ -21,16 +21,13 @@ impl World {
         Some(chunk.data.as_ref()?.blocks.get(block_pos.as_chunk_local()))
     }
 
-    pub fn raycast(&self, ray_start_position: Vec3, ray: Vec3) -> Option<RayHitInfo> {
-        let max_length = ray.length();
-        let ray = ray.normalize();
+    pub fn raycast(&self, ray: Ray, max_length: f32) -> Option<RayHitInfo> {
+        let mut block_pos = BlockPos::from(ray.origin);
 
-        let mut block_pos = BlockPos::from(ray_start_position);
-
-        let direction = ray.signum().as_ivec3();
+        let direction = ray.direction.signum().as_ivec3();
 
         // distance it would take for each ray to travel 1 block for each axis
-        let intercept_time_interval = ray.map(|elem| {
+        let intercept_time_interval = ray.direction.map(|elem| {
             if elem != 0.0 {
                 (BLOCK_SIZE / elem).abs()
             } else {
@@ -39,7 +36,7 @@ impl World {
         });
 
         // offset in block of starting position
-        let ray_offset = ray_start_position.map(|elem| {
+        let ray_offset = ray.origin.map(|elem| {
             if elem > 0.0 {
                 elem % BLOCK_SIZE
             } else {
@@ -55,7 +52,7 @@ impl World {
             } else {
                 f32::INFINITY
             }
-        }, Vec3, ray, ray_offset);
+        }, Vec3, ray.direction, ray_offset);
 
         loop {
             let next_intercept_axis = if next_intercept_time.x < next_intercept_time.y && next_intercept_time.x < next_intercept_time.z {
@@ -79,7 +76,7 @@ impl World {
             // ray has hit
             if let Some(block) = self.get_block(block_pos) && !block.is_air() {
                 return Some(RayHitInfo {
-                    position: ray_start_position + current_time * ray,
+                    position: ray.get_point(current_time),
                     block_pos,
                 });
             }

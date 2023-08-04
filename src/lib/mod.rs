@@ -41,6 +41,7 @@ impl Plugin for MineconePlugin {
                 FrameTimeDiagnosticsPlugin::default(),
             ))
             .add_plugins((
+                items::ItemPlugin,
                 player::PlayerPlugin,
                 physics::PhysicsPlugin,
                 world::WorldPlugin,

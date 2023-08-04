@@ -3,7 +3,6 @@ use bevy::prelude::*;
 use crate::{world::ChunkLoader, types::ChunkPos};
 
 mod camera_controller;
-mod inventory;
 
 const RENDER_DISTANCE: UVec3 = UVec3::new(10, 5, 10);
 
@@ -26,7 +25,6 @@ impl Plugin for PlayerPlugin {
         app.add_systems(Startup, setup_player)
             .add_plugins((
                 camera_controller::ControllerPlugin,
-                inventory::InventoryPlugin,
             ));
     }
 }

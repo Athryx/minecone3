@@ -196,7 +196,7 @@ impl IndexMut<VecAxis> for IVec3 {
 
 #[macro_export]
 macro_rules! vec3_map_many {
-    ($f:expr, $out_vec:ident, $( $vecs:ident ),+) => {
+    ($f:expr, $out_vec:ident, $( $vecs:expr ),+) => {
         $out_vec::new($f(
             $(
                 $vecs.x,
@@ -213,4 +213,26 @@ macro_rules! vec3_map_many {
             )*
         ))
     };
+}
+
+pub trait TransformExt {
+    fn to_ray(&self) -> Ray;
+}
+
+impl TransformExt for Transform {
+    fn to_ray(&self) -> Ray {
+        Ray {
+            origin: self.translation,
+            direction: self.forward(),
+        }
+    }
+}
+
+impl TransformExt for GlobalTransform {
+    fn to_ray(&self) -> Ray {
+        Ray {
+            origin: self.translation(),
+            direction: self.forward(),
+        }
+    }
 }
