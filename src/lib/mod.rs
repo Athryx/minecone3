@@ -14,6 +14,7 @@ mod player;
 mod render;
 mod task;
 mod types;
+mod ui;
 mod world;
 mod worldgen;
 
@@ -46,6 +47,7 @@ impl Plugin for MineconePlugin {
                 physics::PhysicsPlugin,
                 world::WorldPlugin,
                 render::RenderPlugin,
+                ui::UiPlugin,
             ))
             .add_systems(Startup, test);
     }
