@@ -47,7 +47,6 @@ pub(super) fn remesh_dirty_chunks(world: Res<World>, mut commands: Commands) {
         let chunk_entity = chunk.entity;
 
         let task = task_pool.spawn(move || {
-            println!("remesh chunk");
             let mut chunk_data = chunk.data.lock();
 
             if let Some(chunk_data) = &mut *chunk_data {

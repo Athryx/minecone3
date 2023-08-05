@@ -49,10 +49,10 @@ impl World {
 
         // offset in block of starting position
         let ray_offset = ray.origin.map(|elem| {
-            if elem > 0.0 {
+            if elem >= 0.0 {
                 elem % BLOCK_SIZE
             } else {
-                BLOCK_SIZE - (elem % BLOCK_SIZE)
+                BLOCK_SIZE + (elem % BLOCK_SIZE)
             }
         });
 
