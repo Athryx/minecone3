@@ -167,7 +167,7 @@ impl<'a> ChunkLockCache<'a> {
     // TODO: figure out how dirty chunk will work with mut reference
     fn new_block(&mut self, block_pos: BlockPos, block_type: BlockType) -> Option<&mut Block> {
         self.lock_chunk(ChunkPos::from(block_pos));
-        if self.current_chunk_is_dirty() {
+        if !self.current_chunk_is_dirty() {
             // panic safety: if current chunk is dirty, current chunk should be loaded
             self.world.dirty_chunks.push(self.current_chunk_pos().unwrap());
         }

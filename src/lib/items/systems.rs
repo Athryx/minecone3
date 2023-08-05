@@ -18,7 +18,7 @@ impl WeaponUseTime {
     pub fn from_use_time(use_time: usize) -> Self {
         WeaponUseTime {
             use_time,
-            remaining_cooldown_time: 0,
+            remaining_cooldown_time: use_time,
             currently_using: false,
         }
     }
