@@ -7,8 +7,8 @@ use crate::GameSet;
 use crate::world::ChunkLoader;
 use crate::types::ChunkPos;
 
-const SPEED: f32 = 1.0;
-const FAST_SPEED: f32 = 20.0;
+const SPEED: f32 = 0.25;
+const FAST_SPEED: f32 = 5.0;
 const ROTATION_SPEED: f32 = 2.0;
 const MOUSE_ROTATION_SPEED: f32 = 0.001;
 
@@ -119,7 +119,7 @@ fn move_camera(
         let forward_temp = verticle_rotation * forward4;
 
         // stop camera from rotating all the way around top or bottom
-        if forward_temp.xyz().normalize().dot(up).abs() < 0.98 {
+        if forward_temp.xyz().normalize().dot(up).abs() < 0.995 {
             forward4 = forward_temp;
         }
 

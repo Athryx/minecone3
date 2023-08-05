@@ -208,6 +208,16 @@ impl FaceMeshData {
             ),
         };
 
+        // fix distorted textures because face count axis are in the wrong order for left and right sides
+        let face_count = match face_direction {
+            FaceDirection::Left
+                | FaceDirection::Right => Vec2::new(face_count.y, face_count.x),
+            FaceDirection::Top
+                | FaceDirection::Bottom
+                | FaceDirection::Front
+                | FaceDirection::Back => face_count,
+        };
+
         FaceMeshData {
             tl_vertex: tl_vertex + position,
             tr_vertex: tr_vertex + position,
@@ -354,6 +364,10 @@ fn mesh_layer(
                     break;
                 }
 
+                if visit_map.is_visited(x, y_pos) {
+                    break;
+                }
+
                 if !block_face.can_merge_with(&get_model(x, y_pos).get_face(face)) || is_occluded(x, y_pos) {
                     break;
                 }
@@ -370,6 +384,10 @@ fn mesh_layer(
                 }
 
                 for y_pos in 0..y_len {
+                    if visit_map.is_visited(x_pos, y_pos + y) {
+                        break 'outer;
+                    }
+
                     if is_occluded(x_pos, y_pos + y) {
                         // this can be marked as visited, because since it is occluded it will never generate a face
                         visit_map.visit(x_pos, y_pos + y);
@@ -390,15 +408,7 @@ fn mesh_layer(
                 x_len += 1;
             }
 
-
-            let face_count = match face {
-                FaceDirection::Front
-                    | FaceDirection::Back
-                    | FaceDirection::Left
-                    | FaceDirection::Right
-                    | FaceDirection::Top
-                    | FaceDirection::Bottom => Vec2::new(x_len as f32, y_len as f32),
-            };
+            let face_count = Vec2::new(x_len as f32, y_len as f32);
 
             // TODO: make this cleaner
             let face_mesh_data = FaceMeshData::new(

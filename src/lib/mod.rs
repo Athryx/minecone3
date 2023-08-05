@@ -5,7 +5,9 @@
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::pbr::wireframe::WireframePlugin;
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
+mod debug;
 mod blocks;
 mod items;
 mod meshing;
@@ -27,8 +29,10 @@ impl Plugin for MineconePlugin {
                 WireframePlugin::default(),
                 LogDiagnosticsPlugin::default(),
                 FrameTimeDiagnosticsPlugin::default(),
+                WorldInspectorPlugin::new(),
             ))
             .add_plugins((
+                debug::DebugPlugin,
                 items::ItemPlugin,
                 player::PlayerPlugin,
                 physics::PhysicsPlugin,
