@@ -48,7 +48,16 @@ impl BlockFace {
 
     /// Returns true if this face can be merged with the other face in the greedy meshing algorithm
     fn can_merge_with(&self, other: &BlockFace) -> bool {
-        self.texture_data.unwrap().texture_map_index == other.texture_data.unwrap().texture_map_index
+        // if either of these do not have texture faces, they are air and cannot be merged
+        let Some(this_texture_data) = self.texture_data else {
+            return false;
+        };
+
+        let Some(other_texture_data) = other.texture_data else {
+            return false;
+        };
+
+        this_texture_data.texture_map_index == other_texture_data.texture_map_index
             && self.rotation == other.rotation
     }
 
@@ -239,30 +248,24 @@ impl FaceMeshData {
 /// Generates a mesh for the given chunk, or returns None if the mesh has no faces
 // An empty mesh cannot be used here because the custom shader needs all the attributes to exist,
 // and if an attribute exists but it has an empty array, this causes a ton of lag in bevy for some reason
-pub fn generate_mesh(blocks: Option<&BlockStorage>, models: &[BlockModel]) -> Option<Mesh> {
+pub fn generate_mesh(blocks: &BlockStorage, models: &[BlockModel]) -> Mesh {
     let mut buffers = MeshBuffers::default();
     let mut visit_map = VisitedBlockMap::new();
 
-    if let Some(blocks) = blocks {
-        for face in FaceDirection::iter() {
-            for layer in 0..(CHUNK_SIZE as i32) {
-                mesh_layer(blocks, models, &mut buffers, &mut visit_map, face, layer);
-            }
+    for face in FaceDirection::iter() {
+        for layer in 0..(CHUNK_SIZE as i32) {
+            mesh_layer(blocks, models, &mut buffers, &mut visit_map, face, layer);
         }
     }
 
-    if buffers.is_empty() {
-        None
-    } else {
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
 
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, buffers.position_buffer);
-        mesh.insert_attribute(ATTRIBUTE_UV_BASE, buffers.uv_base_buffer);
-        mesh.insert_attribute(ATTRIBUTE_FACE_COUNT, buffers.face_count_buffer);
-        mesh.set_indices(Some(Indices::U32(buffers.index_buffer)));
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, buffers.position_buffer);
+    mesh.insert_attribute(ATTRIBUTE_UV_BASE, buffers.uv_base_buffer);
+    mesh.insert_attribute(ATTRIBUTE_FACE_COUNT, buffers.face_count_buffer);
+    mesh.set_indices(Some(Indices::U32(buffers.index_buffer)));
 
-        Some(mesh)
-    }
+    mesh
 }
 
 fn block_pos_for_layer(face: FaceDirection, layer: i32, x: i32, y: i32) -> BlockPos {

@@ -1,3 +1,6 @@
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
+
 use bevy::prelude::*;
 use parking_lot::Mutex;
 
@@ -148,15 +151,15 @@ pub struct ChunkLoadTask(Task<(Option<ChunkData>, Option<Mesh>)>);
 
 /// Loads and meshes the chunk at the given position
 fn load_chunk(chunk_pos: ChunkPos) -> (Option<ChunkData>, Option<Mesh>) {
-    let chunk_data = generate_chunk(chunk_pos);
+    let chunk = generate_chunk(chunk_pos);
 
-    let blocks = chunk_data
-        .as_ref()
-        .map(|chunk| &chunk.blocks);
+    let Some(chunk_data) = chunk.as_ref() else {
+        return (chunk, None);
+    };
 
-    let mesh = generate_mesh(blocks, block_models());
+    let mesh = generate_mesh(&chunk_data.blocks, block_models());
 
-    (chunk_data, mesh)
+    (chunk, Some(mesh))
 }
 
 /// Loads and unloads chunks based on whre chunk loaders are
@@ -188,23 +191,23 @@ pub fn queue_generate_chunks(
                     let chunk = Chunk {
                         data: Mutex::new(None),
                         entity: chunk_entity,
-                        load_count: 1,
+                        load_count: AtomicU32::new(1),
                     };
 
-                    world.chunks.insert(chunk_pos, chunk);
+                    world.chunks.insert(chunk_pos, Arc::new(chunk));
                 }
             }
 
             for chunk_pos in last_region.iter_chunks() {
                 if !current_region.contains_chunk(chunk_pos) {
                     // unload chunks
-                    let chunk = world.chunks.get_mut(&chunk_pos).unwrap();
+                    let chunk = world.chunks.get(&chunk_pos).unwrap();
 
-                    if chunk.load_count == 1 {
+                    // TODO: figure out if this is right ordering
+                    let load_count = chunk.load_count.fetch_sub(1, Ordering::AcqRel);
+                    if load_count == 1 {
                         commands.entity(chunk.entity).despawn();
                         world.chunks.remove(&chunk_pos);
-                    } else {
-                        chunk.load_count -= 1;
                     }
                 }
             }
@@ -216,7 +219,7 @@ pub fn queue_generate_chunks(
 }
 
 pub fn poll_chunk_load_tasks(
-    mut world: ResMut<World>,
+    world: Res<World>,
     block_material: Res<GlobalBlockMaterial>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut query: Query<(Entity, &EcsChunk, &ChunkLoadTask)>,

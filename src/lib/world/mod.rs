@@ -27,7 +27,10 @@ impl Plugin for WorldPlugin {
                     // run this before queue generate chunks so it will run next frame, which will give command buffer time to flush
                     chunk_loader::poll_chunk_load_tasks.before(chunk_loader::queue_generate_chunks),
                     chunk_loader::queue_generate_chunks,
+                    chunk::poll_chunk_mesh_tasks,
                 ).in_set(GameSet::Main)
-            );
+            )
+            // do this after everything else has run
+            .add_systems(PostUpdate, chunk::remesh_dirty_chunks);
     }
 }

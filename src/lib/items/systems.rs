@@ -11,7 +11,7 @@ pub struct WeaponUseTime {
     /// This is 0 when the weapon is ready to use, and is reset to the use time when the weapon is used
     remaining_cooldown_time: usize,
     /// True if the player is currently attemtping to use the weapon
-    currently_using: bool,
+    pub currently_using: bool,
 }
 
 impl WeaponUseTime {

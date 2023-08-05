@@ -1,10 +1,12 @@
 use bevy::prelude::*;
 
 mod systems;
-use systems::*;
+pub use systems::*;
 
 mod debug_miner;
 use debug_miner::DebugMiner;
+
+use crate::GameSet;
 
 #[derive(Debug)]
 struct ItemProperties {
@@ -15,6 +17,14 @@ struct ItemProperties {
 trait Item: Component + Default {
     fn properties() -> ItemProperties;
     fn add_systems(app: &mut App);
+
+    fn spawn_bundle(commands: &mut Commands) -> Entity {
+        commands.spawn((
+            Self::default(),
+            WeaponUseTime::from_use_time(Self::properties().use_time),
+            TransformBundle::default(),
+        )).id()
+    }
 }
 
 macro_rules! register_items {
@@ -24,6 +34,16 @@ macro_rules! register_items {
             $(
                 $items,
             )*
+        }
+
+        impl ItemType {
+            pub fn spawn_bundle(&self, commands: &mut Commands) -> Entity {
+                match self {
+                    $(
+                        Self::$items => $items::spawn_bundle(commands),
+                    )*
+                }
+            }
         }
 
         $(
@@ -47,12 +67,13 @@ register_items! {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, SystemSet)]
-struct ItemUseSet;
+pub struct ItemUseSet;
 
 pub struct ItemPlugin;
 
 impl Plugin for ItemPlugin {
     fn build(&self, app: &mut App) {
+        app.configure_set(Update, ItemUseSet.in_set(GameSet::Main));
         add_item_systems(app);
     }
 }
