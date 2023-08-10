@@ -7,6 +7,7 @@ use crate::blocks::BlockStorage;
 use crate::meshing::generate_mesh;
 use crate::render::block_models;
 use crate::task::{TaskPool, Task};
+use crate::types::ChunkPos;
 use super::World;
 
 pub const CHUNK_SIZE: usize = 32;
@@ -16,10 +17,23 @@ pub const CHUNK_BLOCK_COUNT: usize = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
 pub struct Chunk {
     // will be None if the chunk is air or has not finished loading yet
     pub data: RwLock<ChunkData>,
+    pub chunk_pos: ChunkPos,
     pub entity: Entity,
     pub load_count: AtomicU32,
     /// Used to indicate if blocks have been changed but chunk has not yet been remeshed
     pub dirty: AtomicBool,
+}
+
+impl Chunk {
+    /// Marks the chunk as dirty and queues a remesh job for the chunk
+    pub fn mark_dirty(&self, world: &World) {
+        // TODO: make sure ordering is correct
+        if !self.dirty.swap(true, Ordering::AcqRel) {
+            // old dirty bit was false, so push to remesh list
+            // panic safety: if current chunk is dirty, current chunk should be loaded
+            world.dirty_chunks.push(self.chunk_pos);
+        }
+    }
 }
 
 #[derive(Debug, Default)]

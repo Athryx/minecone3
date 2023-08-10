@@ -105,7 +105,7 @@ struct ChunkLockCache<'world> {
 
 struct ChunkLockCacheInner<'world> {
     lock: RwLockReadGuard<'world, ChunkData>,
-    last_chunk_pos: ChunkPos,
+    chunk: &'world Chunk,
 }
 
 impl<'a> ChunkLockCache<'a> {
@@ -120,21 +120,20 @@ impl<'a> ChunkLockCache<'a> {
         Some(&self.inner.as_ref()?.lock)
     }
 
-    fn current_chunk_pos(&self) -> Option<ChunkPos> {
-        Some(self.inner.as_ref()?.last_chunk_pos)
-    }
-
     fn lock_chunk(&mut self, chunk_pos: ChunkPos) {
-        if let Some(ref inner) = self.inner && inner.last_chunk_pos == chunk_pos {
+        if let Some(ref inner) = self.inner && inner.chunk.chunk_pos == chunk_pos {
             // correct chunk is already locked
         } else {
+            // force old lock to be dropped before acquiring new lock
+            self.inner = None;
+
             let Some(chunk) = self.world.chunks.get(&chunk_pos) else {
                 return;
             };
 
             self.inner = Some(ChunkLockCacheInner {
                 lock: chunk.data.read(),
-                last_chunk_pos: chunk_pos,
+                chunk: &chunk,
             });
         }
     }
@@ -155,8 +154,7 @@ struct ChunkLockCacheMut<'world> {
 
 struct ChunkLockCacheInnerMut<'world> {
     lock: RwLockWriteGuard<'world, ChunkData>,
-    dirty: &'world AtomicBool,
-    last_chunk_pos: ChunkPos,
+    chunk: &'world Chunk,
 }
 
 impl<'a> ChunkLockCacheMut<'a> {
@@ -171,35 +169,28 @@ impl<'a> ChunkLockCacheMut<'a> {
         Some(&mut self.inner.as_mut()?.lock)
     }
 
-    fn current_chunk_pos(&self) -> Option<ChunkPos> {
-        Some(self.inner.as_ref()?.last_chunk_pos)
-    }
-
     fn lock_chunk(&mut self, chunk_pos: ChunkPos) {
-        if let Some(ref inner) = self.inner && inner.last_chunk_pos == chunk_pos {
+        if let Some(ref inner) = self.inner && inner.chunk.chunk_pos == chunk_pos {
             // correct chunk is already locked
         } else {
+            // force old lock to be dropped before acquiring new lock
+            self.inner = None;
+
             let Some(chunk) = self.world.chunks.get(&chunk_pos) else {
                 return;
             };
 
             self.inner = Some(ChunkLockCacheInnerMut {
                 lock: chunk.data.write(),
-                dirty: &chunk.dirty,
-                last_chunk_pos: chunk_pos,
+                chunk: &chunk,
             });
         }
     }
 
-    // marks the current chunk as dirty if it exists
+    /// Marks the current chunk as dirty if it exists
     fn mark_dirty(&self) {
         if let Some(ref inner) = self.inner {
-            // TODO: make sure ordering is correct
-            if !inner.dirty.swap(true, Ordering::AcqRel) {
-                // old dirty bit was false, so push to remesh list
-                // panic safety: if current chunk is dirty, current chunk should be loaded
-                self.world.dirty_chunks.push(self.current_chunk_pos().unwrap());
-            }
+            inner.chunk.mark_dirty(self.world);
         }
     }
 

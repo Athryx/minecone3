@@ -147,20 +147,12 @@ pub fn move_chunk_loader(
 
 /// A task that is currently loading a chunk
 #[derive(Component)]
-pub struct ChunkLoadTask(Task<(ChunkData, Option<Mesh>)>);
-
-/// Loads and meshes the chunk at the given position
-fn load_chunk(chunk_pos: ChunkPos) -> (ChunkData, Option<Mesh>) {
-    let chunk_data = generate_chunk(chunk_pos);
-
-    let mesh = generate_mesh(&chunk_data.blocks, block_models());
-
-    (chunk_data, mesh)
-}
+pub struct ChunkLoadTask(Task<ChunkData>);
 
 /// Loads and unloads chunks based on whre chunk loaders are
 pub fn queue_generate_chunks(
     mut world: ResMut<World>,
+    block_material: Res<GlobalBlockMaterial>,
     mut loaders: Query<&mut ChunkLoader>,
     mut commands: Commands,
 ) {
@@ -176,16 +168,25 @@ pub fn queue_generate_chunks(
                 if !last_region.contains_chunk(chunk_pos) {
                     // load chunks
                     let load_task = task_pool.spawn(move || {
-                        load_chunk(chunk_pos)
+                        generate_chunk(chunk_pos)
                     });
 
                     let chunk_entity = commands.spawn((
                         EcsChunk(chunk_pos),
                         ChunkLoadTask(load_task),
+                        // All these are all parts of material mesh bundle except the mesh, which will be generated later
+                        TransformBundle {
+                            local: chunk_pos.into(),
+                            ..Default::default()
+                        },
+                        Visibility::default(),
+                        ComputedVisibility::default(),
+                        block_material.0.clone(),
                     )).id();
 
                     let chunk = Chunk {
                         data: RwLock::new(ChunkData::default()),
+                        chunk_pos,
                         entity: chunk_entity,
                         load_count: AtomicU32::new(1),
                         // chunk is not dirty because it has no blocks and has not been generated yet,
@@ -219,27 +220,16 @@ pub fn queue_generate_chunks(
 
 pub fn poll_chunk_load_tasks(
     world: Res<World>,
-    block_material: Res<GlobalBlockMaterial>,
-    mut meshes: ResMut<Assets<Mesh>>,
     mut query: Query<(Entity, &EcsChunk, &ChunkLoadTask)>,
     mut commands: Commands,
 ) {
     for (entity, ecs_chunk, load_task) in query.iter_mut() {
-        if let Some((chunk_data, mesh)) = load_task.0.poll() {
-            let mut entity_commands = commands.entity(entity);
-            entity_commands.remove::<ChunkLoadTask>();
+        if let Some(chunk_data) = load_task.0.poll() {
+            commands.entity(entity).remove::<ChunkLoadTask>();
 
-            if let Some(mesh) = mesh {
-                let mesh_handle = meshes.add(mesh);
-                entity_commands.insert(MaterialMeshBundle {
-                    mesh: mesh_handle,
-                    material: block_material.0.clone(),
-                    transform: ecs_chunk.0.into(),
-                    ..Default::default()
-                });
-            }
-
-            *world.chunks.get(&ecs_chunk.0).unwrap().data.write() = chunk_data;
+            let chunk = world.chunks.get(&ecs_chunk.0).unwrap();
+            *chunk.data.write() = chunk_data;
+            chunk.mark_dirty(&world);
         }
     }
 }
