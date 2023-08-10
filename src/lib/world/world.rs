@@ -1,7 +1,7 @@
-use std::sync::Arc;
+use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 
 use bevy::{prelude::*, utils::HashMap};
-use parking_lot::MutexGuard;
+use parking_lot::{RwLockReadGuard, RwLockWriteGuard};
 use crossbeam::queue::SegQueue;
 
 use crate::{types::*, vec3_map_many, blocks::{Block, BlockType}};
@@ -26,11 +26,10 @@ impl World {
     /// Returns a copy of the block on sucess, or `None` on failure
     /// 
     /// This should only be used for one off accessess
-    /// If repeted accesses are needed, use [`ChunkLockCache`] directly
+    /// If repeted accesses are needed, use [`ChunkLockCacheMut`] directly
     pub fn new_block(&self, block_pos: BlockPos, block_type: BlockType) -> Option<Block> {
-        ChunkLockCache::new(self)
+        ChunkLockCacheMut::new(self)
             .new_block(block_pos, block_type)
-            .copied()
     }
 
     pub fn raycast(&self, ray: Ray, max_length: f32) -> Option<RayHitInfo> {
@@ -105,7 +104,7 @@ struct ChunkLockCache<'world> {
 }
 
 struct ChunkLockCacheInner<'world> {
-    lock: MutexGuard<'world, Option<ChunkData>>,
+    lock: RwLockReadGuard<'world, ChunkData>,
     last_chunk_pos: ChunkPos,
 }
 
@@ -117,17 +116,8 @@ impl<'a> ChunkLockCache<'a> {
         }
     }
 
-    fn get_chunk_data_mut(&mut self) -> Option<&mut ChunkData> {
-        (&mut self.inner.as_mut()?.lock).as_mut()
-    }
-
-    fn current_chunk_is_dirty(&self) -> bool {
-        if let Some(ref inner) = self.inner
-            && let Some(chunk_data) = &*inner.lock {
-            chunk_data.blocks.is_dirty()
-        } else {
-            false
-        }
+    fn get_chunk_data(&self) -> Option<&ChunkData> {
+        Some(&self.inner.as_ref()?.lock)
     }
 
     fn current_chunk_pos(&self) -> Option<ChunkPos> {
@@ -143,13 +133,77 @@ impl<'a> ChunkLockCache<'a> {
             };
 
             self.inner = Some(ChunkLockCacheInner {
-                lock: chunk.data.lock(),
+                lock: chunk.data.read(),
                 last_chunk_pos: chunk_pos,
             });
         }
     }
 
-    fn get_block(&mut self, block_pos: BlockPos) -> Option<&Block> {
+    fn get_block(&mut self, block_pos: BlockPos) -> Option<Block> {
+        self.lock_chunk(ChunkPos::from(block_pos));
+        let chunk_data = self.get_chunk_data()?;
+
+        Some(chunk_data.blocks.get(block_pos.as_chunk_local()))
+    }
+}
+
+/// Caches the last lock chunk so block accessess around the same area do not need to repeatedly re lock the chunk
+struct ChunkLockCacheMut<'world> {
+    world: &'world World,
+    inner: Option<ChunkLockCacheInnerMut<'world>>,
+}
+
+struct ChunkLockCacheInnerMut<'world> {
+    lock: RwLockWriteGuard<'world, ChunkData>,
+    dirty: &'world AtomicBool,
+    last_chunk_pos: ChunkPos,
+}
+
+impl<'a> ChunkLockCacheMut<'a> {
+    fn new(world: &'a World) -> Self {
+        ChunkLockCacheMut {
+            world,
+            inner: None,
+        }
+    }
+
+    fn get_chunk_data_mut(&mut self) -> Option<&mut ChunkData> {
+        Some(&mut self.inner.as_mut()?.lock)
+    }
+
+    fn current_chunk_pos(&self) -> Option<ChunkPos> {
+        Some(self.inner.as_ref()?.last_chunk_pos)
+    }
+
+    fn lock_chunk(&mut self, chunk_pos: ChunkPos) {
+        if let Some(ref inner) = self.inner && inner.last_chunk_pos == chunk_pos {
+            // correct chunk is already locked
+        } else {
+            let Some(chunk) = self.world.chunks.get(&chunk_pos) else {
+                return;
+            };
+
+            self.inner = Some(ChunkLockCacheInnerMut {
+                lock: chunk.data.write(),
+                dirty: &chunk.dirty,
+                last_chunk_pos: chunk_pos,
+            });
+        }
+    }
+
+    // marks the current chunk as dirty if it exists
+    fn mark_dirty(&self) {
+        if let Some(ref inner) = self.inner {
+            // TODO: make sure ordering is correct
+            if !inner.dirty.swap(true, Ordering::AcqRel) {
+                // old dirty bit was false, so push to remesh list
+                // panic safety: if current chunk is dirty, current chunk should be loaded
+                self.world.dirty_chunks.push(self.current_chunk_pos().unwrap());
+            }
+        }
+    }
+
+    fn get_block(&mut self, block_pos: BlockPos) -> Option<Block> {
         self.lock_chunk(ChunkPos::from(block_pos));
         let chunk_data = self.get_chunk_data_mut()?;
 
@@ -164,15 +218,12 @@ impl<'a> ChunkLockCache<'a> {
         Some(chunk_data.blocks.get_mut(block_pos.as_chunk_local()))
     }*/
 
-    // TODO: figure out how dirty chunk will work with mut reference
-    fn new_block(&mut self, block_pos: BlockPos, block_type: BlockType) -> Option<&mut Block> {
+    fn new_block(&mut self, block_pos: BlockPos, block_type: BlockType) -> Option<Block> {
         self.lock_chunk(ChunkPos::from(block_pos));
-        if !self.current_chunk_is_dirty() {
-            // panic safety: if current chunk is dirty, current chunk should be loaded
-            self.world.dirty_chunks.push(self.current_chunk_pos().unwrap());
-        }
-        let chunk_data = self.get_chunk_data_mut()?;
 
+        self.mark_dirty();
+
+        let chunk_data = self.get_chunk_data_mut()?;
         Some(chunk_data.blocks.new_block(block_pos.as_chunk_local(), block_type))
     }
 }

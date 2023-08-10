@@ -1,7 +1,7 @@
-use std::sync::atomic::AtomicU32;
+use std::sync::atomic::{AtomicU32, AtomicBool, Ordering};
 
 use bevy::prelude::*;
-use parking_lot::Mutex;
+use parking_lot::RwLock;
 
 use crate::blocks::BlockStorage;
 use crate::meshing::generate_mesh;
@@ -10,16 +10,19 @@ use crate::task::{TaskPool, Task};
 use super::World;
 
 pub const CHUNK_SIZE: usize = 32;
+pub const CHUNK_BLOCK_COUNT: usize = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
 
 #[derive(Debug)]
 pub struct Chunk {
     // will be None if the chunk is air or has not finished loading yet
-    pub data: Mutex<Option<ChunkData>>,
+    pub data: RwLock<ChunkData>,
     pub entity: Entity,
     pub load_count: AtomicU32,
+    /// Used to indicate if blocks have been changed but chunk has not yet been remeshed
+    pub dirty: AtomicBool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ChunkData {
     pub blocks: BlockStorage,
 }
@@ -47,15 +50,9 @@ pub(super) fn remesh_dirty_chunks(world: Res<World>, mut commands: Commands) {
         let chunk_entity = chunk.entity;
 
         let task = task_pool.spawn(move || {
-            let mut chunk_data = chunk.data.lock();
-
-            if let Some(chunk_data) = &mut *chunk_data {
-                chunk_data.blocks.clear_dirty();
-
-                Some(generate_mesh(&chunk_data.blocks, block_models()))
-            } else {
-                None
-            }
+            let chunk_data = chunk.data.read();
+            chunk.dirty.store(false, Ordering::Release);
+            generate_mesh(&chunk_data.blocks, block_models())
         });
 
         commands.entity(chunk_entity)

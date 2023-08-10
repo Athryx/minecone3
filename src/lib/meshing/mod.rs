@@ -258,7 +258,11 @@ impl FaceMeshData {
 /// Generates a mesh for the given chunk, or returns None if the mesh has no faces
 // An empty mesh cannot be used here because the custom shader needs all the attributes to exist,
 // and if an attribute exists but it has an empty array, this causes a ton of lag in bevy for some reason
-pub fn generate_mesh(blocks: &BlockStorage, models: &[BlockModel]) -> Mesh {
+pub fn generate_mesh(blocks: &BlockStorage, models: &[BlockModel]) -> Option<Mesh> {
+    if blocks.is_empty() {
+        return None;
+    }
+
     let mut buffers = MeshBuffers::default();
     let mut visit_map = VisitedBlockMap::new();
 
@@ -275,7 +279,7 @@ pub fn generate_mesh(blocks: &BlockStorage, models: &[BlockModel]) -> Mesh {
     mesh.insert_attribute(ATTRIBUTE_FACE_COUNT, buffers.face_count_buffer);
     mesh.set_indices(Some(Indices::U32(buffers.index_buffer)));
 
-    mesh
+    Some(mesh)
 }
 
 fn block_pos_for_layer(face: FaceDirection, layer: i32, x: i32, y: i32) -> BlockPos {

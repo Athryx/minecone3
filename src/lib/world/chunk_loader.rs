@@ -1,8 +1,8 @@
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicU32, Ordering, AtomicBool};
 
 use bevy::prelude::*;
-use parking_lot::Mutex;
+use parking_lot::RwLock;
 
 use crate::task::{Task, TaskPool};
 use crate::{types::ChunkPos, render::{GlobalBlockMaterial, block_models}, worldgen::generate_chunk, meshing::generate_mesh};
@@ -147,19 +147,15 @@ pub fn move_chunk_loader(
 
 /// A task that is currently loading a chunk
 #[derive(Component)]
-pub struct ChunkLoadTask(Task<(Option<ChunkData>, Option<Mesh>)>);
+pub struct ChunkLoadTask(Task<(ChunkData, Option<Mesh>)>);
 
 /// Loads and meshes the chunk at the given position
-fn load_chunk(chunk_pos: ChunkPos) -> (Option<ChunkData>, Option<Mesh>) {
-    let chunk = generate_chunk(chunk_pos);
-
-    let Some(chunk_data) = chunk.as_ref() else {
-        return (chunk, None);
-    };
+fn load_chunk(chunk_pos: ChunkPos) -> (ChunkData, Option<Mesh>) {
+    let chunk_data = generate_chunk(chunk_pos);
 
     let mesh = generate_mesh(&chunk_data.blocks, block_models());
 
-    (chunk, Some(mesh))
+    (chunk_data, mesh)
 }
 
 /// Loads and unloads chunks based on whre chunk loaders are
@@ -189,9 +185,12 @@ pub fn queue_generate_chunks(
                     )).id();
 
                     let chunk = Chunk {
-                        data: Mutex::new(None),
+                        data: RwLock::new(ChunkData::default()),
                         entity: chunk_entity,
                         load_count: AtomicU32::new(1),
+                        // chunk is not dirty because it has no blocks and has not been generated yet,
+                        // so having no mesh is up to date with blocks
+                        dirty: AtomicBool::new(false),
                     };
 
                     world.chunks.insert(chunk_pos, Arc::new(chunk));
@@ -240,7 +239,7 @@ pub fn poll_chunk_load_tasks(
                 });
             }
 
-            *world.chunks.get(&ecs_chunk.0).unwrap().data.lock() = chunk_data;
+            *world.chunks.get(&ecs_chunk.0).unwrap().data.write() = chunk_data;
         }
     }
 }
