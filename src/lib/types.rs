@@ -25,7 +25,15 @@ pub enum VecAxis {
 pub struct ChunkPos(pub IVec3);
 
 impl ChunkPos {
-    pub fn new(x: i32, y: i32, z: i32) -> Self {
+    pub const ZERO: Self = ChunkPos::new(0, 0, 0);
+    pub const X: Self = ChunkPos::new(1, 0, 0);
+    pub const NEG_X: Self = ChunkPos::new(-1, 0, 0);
+    pub const Y: Self = ChunkPos::new(0, 1, 0);
+    pub const NEG_Y: Self = ChunkPos::new(0, -1, 0);
+    pub const Z: Self = ChunkPos::new(0, 0, 1);
+    pub const NEG_Z: Self = ChunkPos::new(0, 0, -1);
+
+    pub const fn new(x: i32, y: i32, z: i32) -> Self {
         ChunkPos(IVec3::new(x, y, z))
     }
 
@@ -189,6 +197,28 @@ impl Index<VecAxis> for IVec3 {
 }
 
 impl IndexMut<VecAxis> for IVec3 {
+    fn index_mut(&mut self, index: VecAxis) -> &mut Self::Output {
+        &mut self[index as usize]
+    }
+}
+
+impl VecExt for UVec3 {
+    type NumType = u32;
+
+    fn map<F: FnMut(Self::NumType) -> Self::NumType>(&self, mut f: F) -> Self {
+        UVec3::new(f(self.x), f(self.y), f(self.z))
+    }
+}
+
+impl Index<VecAxis> for UVec3 {
+    type Output = u32;
+
+    fn index(&self, index: VecAxis) -> &Self::Output {
+        &self[index as usize]
+    }
+}
+
+impl IndexMut<VecAxis> for UVec3 {
     fn index_mut(&mut self, index: VecAxis) -> &mut Self::Output {
         &mut self[index as usize]
     }

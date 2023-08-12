@@ -2,80 +2,14 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering, AtomicBool};
 
 use bevy::prelude::*;
+use bevy::math::Vec3A;
+use bevy::render::primitives::Aabb;
 use parking_lot::RwLock;
 
 use crate::task::{Task, TaskPool};
-use crate::{types::ChunkPos, render::{GlobalBlockMaterial, block_models}, worldgen::generate_chunk, meshing::generate_mesh};
-use super::{World, EcsChunk, Chunk, chunk::ChunkData};
-
-/// A rectangular Region of chunks
-#[derive(Debug, Clone, Copy)]
-struct ChunkRegion {
-    // inclusive
-    min_chunk: ChunkPos,
-    // exclusive
-    max_chunk: ChunkPos,
-}
-
-impl ChunkRegion {
-    fn contains_chunk(&self, chunk_pos: ChunkPos) -> bool {
-        self.min_chunk.x() <= chunk_pos.x()
-            && self.min_chunk.y() <= chunk_pos.y()
-            && self.min_chunk.z() <= chunk_pos.z()
-            && self.max_chunk.x() > chunk_pos.x()
-            && self.max_chunk.y() > chunk_pos.y()
-            && self.max_chunk.z() > chunk_pos.z()
-    }
-
-    fn iter_chunks(&self) -> ChunkRegionIterator {
-        let current_chunk = if self.min_chunk == self.max_chunk {
-            None
-        } else {
-            Some(self.min_chunk)
-        };
-
-        ChunkRegionIterator {
-            min_chunk: self.min_chunk,
-            max_chunk: self.max_chunk,
-            current_chunk,
-        }
-    }
-}
-
-struct ChunkRegionIterator {
-    min_chunk: ChunkPos,
-    max_chunk: ChunkPos,
-    current_chunk: Option<ChunkPos>,
-}
-
-impl Iterator for ChunkRegionIterator {
-    type Item = ChunkPos;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut current_chunk = self.current_chunk?;
-        let out = current_chunk;
-
-        current_chunk.0.x += 1;
-
-        if current_chunk.x() == self.max_chunk.x() {
-            current_chunk.0.x = self.min_chunk.x();
-            current_chunk.0.y += 1;
-
-            if current_chunk.y() == self.max_chunk.y() {
-                current_chunk.0.y = self.min_chunk.y();
-                current_chunk.0.z += 1;
-
-                if current_chunk.z() == self.max_chunk.z() {
-                    self.current_chunk = None;
-                    return Some(out);
-                }
-            }
-        }
-
-        self.current_chunk = Some(current_chunk);
-        Some(out)
-    }
-}
+use crate::{types::*, render::GlobalBlockMaterial, worldgen::generate_chunk};
+use super::CHUNK_SIZE;
+use super::{World, EcsChunk, Chunk, chunk::ChunkData, ChunkRegion};
 
 /// Something which loads in chunks in a certain distance around it
 #[derive(Debug, Clone, Copy, Component)]
@@ -101,24 +35,14 @@ impl ChunkLoader {
     }
 
     fn chunk_region_inner(position: ChunkPos, load_distance: UVec3) -> ChunkRegion {
-        if load_distance.x == 0 || load_distance.y == 0 || load_distance.z == 0 {
-            ChunkRegion {
-                min_chunk: position,
-                max_chunk: position,
-            }
-        } else {
-            ChunkRegion {
-                min_chunk: ChunkPos::new(
-                    position.x() - load_distance.x as i32 + 1,
-                    position.y() - load_distance.x as i32 + 1,
-                    position.z() - load_distance.x as i32 + 1,
-                ),
-                max_chunk: ChunkPos::new(
-                    position.x() + load_distance.x as i32,
-                    position.y() + load_distance.x as i32,
-                    position.z() + load_distance.x as i32,
-                )
-            }
+        let min_chunk_offset = load_distance.map(|n| if n == 0 { 0 } else { n - 1 }).as_ivec3();
+        let min_chunk = ChunkPos(position.0 - min_chunk_offset);
+
+        let size = load_distance.map(|n| if n == 0 { 0 } else { n * 2 - 1 });
+
+        ChunkRegion {
+            min_chunk,
+            size,
         }
     }
 
@@ -171,6 +95,9 @@ pub fn queue_generate_chunks(
                         generate_chunk(chunk_pos)
                     });
 
+                    let half_chunk_size = CHUNK_SIZE as f32 * BLOCK_SIZE * 0.5;
+                    let half_chunk_size = Vec3A::new(half_chunk_size, half_chunk_size, half_chunk_size);
+
                     let chunk_entity = commands.spawn((
                         EcsChunk(chunk_pos),
                         ChunkLoadTask(load_task),
@@ -178,6 +105,10 @@ pub fn queue_generate_chunks(
                         TransformBundle {
                             local: chunk_pos.into(),
                             ..Default::default()
+                        },
+                        Aabb {
+                            center: half_chunk_size,
+                            half_extents: half_chunk_size,
                         },
                         Visibility::default(),
                         ComputedVisibility::default(),
@@ -230,6 +161,19 @@ pub fn poll_chunk_load_tasks(
             let chunk = world.chunks.get(&ecs_chunk.0).unwrap();
             *chunk.data.write() = chunk_data;
             chunk.mark_dirty(&world);
+
+            let adjacent_region = ChunkRegion {
+                min_chunk: ChunkPos::new(-1, -1, -1),
+                size: UVec3::new(3, 3, 3),
+            };
+
+            for chunk_pos in adjacent_region.iter_chunks() {
+                if chunk_pos != ChunkPos::ZERO {
+                    if let Some(chunk) = world.chunks.get(&(ecs_chunk.0 + chunk_pos)) {
+                        chunk.mark_dirty(&world);
+                    }
+                }
+            }
         }
     }
 }

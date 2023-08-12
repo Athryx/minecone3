@@ -3,11 +3,13 @@ use bevy::render::mesh::Indices;
 use bevy::render::render_resource::PrimitiveTopology;
 use strum::{FromRepr, EnumIter, IntoEnumIterator};
 
-use crate::blocks::{BlockStorage, BlockType};
+use crate::blocks::{BlockStorage, BlockType, Block};
 use crate::blocks::utils::Rotation;
 use crate::render::{ATTRIBUTE_UV_BASE, ATTRIBUTE_FACE_COUNT};
-use crate::world::CHUNK_SIZE;
-use crate::types::{BlockPos, BLOCK_SIZE};
+use crate::world::{CHUNK_SIZE, LockedChunkArea};
+use crate::types::*;
+
+mod chunk_area;
 
 /// All the models used by blocks, index the block model vec with the blocks id to get it model
 #[derive(Debug, Default, Resource)]
@@ -255,10 +257,30 @@ impl FaceMeshData {
     }
 }
 
+pub struct ChunkMeshData<'a>(LockedChunkArea<'a>);
+
+impl<'a> ChunkMeshData<'a> {
+    pub fn new(chunk_area: LockedChunkArea<'a>) -> Self {
+        assert!(chunk_area.region().size == UVec3::new(3, 3, 3));
+
+        ChunkMeshData(chunk_area)
+    }
+
+    fn is_empty(&self) -> bool {
+        self.0.get_chunk_data_relative(ChunkPos::new(1, 1, 1)).unwrap().blocks.is_empty()
+    }
+
+    fn get(&self, block_pos: BlockPos) -> Block {
+        let chunk_pos = ChunkPos::from(block_pos) + ChunkPos::new(1, 1, 1);
+
+        self.0.get_chunk_data_relative(chunk_pos).unwrap().blocks.get(block_pos.as_chunk_local())
+    }
+}
+
 /// Generates a mesh for the given chunk, or returns None if the mesh has no faces
 // An empty mesh cannot be used here because the custom shader needs all the attributes to exist,
 // and if an attribute exists but it has an empty array, this causes a ton of lag in bevy for some reason
-pub fn generate_mesh(blocks: &BlockStorage, models: &[BlockModel]) -> Option<Mesh> {
+pub fn generate_mesh(blocks: &ChunkMeshData, models: &[BlockModel]) -> Option<Mesh> {
     if blocks.is_empty() {
         return None;
     }
@@ -270,6 +292,10 @@ pub fn generate_mesh(blocks: &BlockStorage, models: &[BlockModel]) -> Option<Mes
         for layer in 0..(CHUNK_SIZE as i32) {
             mesh_layer(blocks, models, &mut buffers, &mut visit_map, face, layer);
         }
+    }
+
+    if buffers.is_empty() {
+        return None;
     }
 
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
@@ -291,7 +317,7 @@ fn block_pos_for_layer(face: FaceDirection, layer: i32, x: i32, y: i32) -> Block
 }
 
 fn mesh_layer(
-    blocks: &BlockStorage,
+    blocks: &ChunkMeshData,
     models: &[BlockModel],
     buffers: &mut MeshBuffers,
     visit_map: &mut VisitedBlockMap,
@@ -325,10 +351,6 @@ fn mesh_layer(
 
     let is_occluded = |x, y| {
         let occluding_pos = occluding_block_pos(x, y);
-        if !occluding_pos.is_chunk_local() {
-            return false;
-        }
-
         let block = blocks.get(occluding_pos);
         let model = &models[block.block_id() as usize];
         model.get_face(face.opposite_face()).is_occluder()

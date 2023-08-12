@@ -4,11 +4,11 @@ use bevy::prelude::*;
 use parking_lot::RwLock;
 
 use crate::blocks::BlockStorage;
-use crate::meshing::generate_mesh;
+use crate::meshing::{generate_mesh, ChunkMeshData};
 use crate::render::block_models;
 use crate::task::{TaskPool, Task};
 use crate::types::ChunkPos;
-use super::World;
+use super::{World, ChunkRegion, OwnedChunkArea};
 
 pub const CHUNK_SIZE: usize = 32;
 pub const CHUNK_BLOCK_COUNT: usize = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
@@ -56,17 +56,36 @@ pub(super) fn remesh_dirty_chunks(world: Res<World>, mut commands: Commands) {
     let task_pool = TaskPool::get();
 
     while let Some(dirty_chunk_pos) = world.dirty_chunks.pop() {
-        let Some(chunk) = world.chunks.get(&dirty_chunk_pos).cloned() else {
-            // TODO: print warning
+        let remesh_region = ChunkRegion {
+            min_chunk: dirty_chunk_pos - ChunkPos::new(1, 1, 1),
+            size: UVec3::new(3, 3, 3),
+        };
+
+        let Some(owned_chunk_area) = OwnedChunkArea::new(&world, remesh_region) else {
+            // adjacent chunks did not exist, so the chunk was skipped, but since it was removed from the dirty list,
+            // it needs to be marked dirty so it can be remeshed when its neigbors are loaded in the future
+            if let Some(chunk) = world.chunks.get(&dirty_chunk_pos) {
+                chunk.dirty.store(false, Ordering::Release);
+            }
+
             continue;
         };
 
-        let chunk_entity = chunk.entity;
+        let chunk_entity = owned_chunk_area
+            .get_chunk_relative(ChunkPos::new(1, 1, 1))
+            .unwrap()
+            .entity;
 
         let task = task_pool.spawn(move || {
-            let chunk_data = chunk.data.read();
-            chunk.dirty.store(false, Ordering::Release);
-            generate_mesh(&chunk_data.blocks, block_models())
+            let mesh_data = ChunkMeshData::new(owned_chunk_area.read());
+
+            owned_chunk_area
+                .get_chunk_relative(ChunkPos::new(1, 1, 1))
+                .unwrap()
+                .dirty
+                .store(false, Ordering::Release);
+
+            generate_mesh(&mesh_data, block_models())
         });
 
         commands.entity(chunk_entity)
@@ -81,6 +100,7 @@ pub(super) fn poll_chunk_mesh_tasks(
 ) {
     for (entity, task) in tasks.iter() {
         if let Some(mesh) = task.0.poll() {
+            println!("remesh finished");
             let mut entity_commands = commands.entity(entity);
             entity_commands.remove::<ChunkMeshTask>();
 

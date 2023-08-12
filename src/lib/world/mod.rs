@@ -6,6 +6,10 @@ mod chunk;
 pub use chunk::{Chunk, ChunkData, CHUNK_SIZE, CHUNK_BLOCK_COUNT};
 mod chunk_loader;
 pub use chunk_loader::ChunkLoader;
+mod chunk_region;
+pub use chunk_region::*;
+mod locked_chunk_area;
+pub use locked_chunk_area::*;
 mod world;
 pub use world::World;
 
