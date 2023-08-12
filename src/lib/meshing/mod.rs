@@ -138,8 +138,8 @@ struct MeshBuffers {
     position_buffer: Vec<[f32; 3]>,
     uv_base_buffer: Vec<[f32; 2]>,
     face_count_buffer: Vec<[f32; 2]>,
-    shading_buffer: Vec<f32>,
     index_buffer: Vec<u32>,
+    shading_buffer: Vec<f32>,
 }
 
 impl MeshBuffers {
@@ -154,25 +154,33 @@ struct FaceMeshData {
     tr_vertex: Vec3,
     bl_vertex: Vec3,
     br_vertex: Vec3,
+    tl_occlude: f32,
+    tr_occlude: f32,
+    bl_occlude: f32,
+    br_occlude: f32,
     uv_base: Vec2,
     face_count: Vec2,
     rotation: Rotation,
 }
 
 impl FaceMeshData {
-    fn new(face: BlockFace, position: BlockPos, face_count: Vec2, face_direction: FaceDirection) -> Self {
+    fn new(face: BlockFace, position: BlockPos, face_count: Vec2, face_direction: FaceDirection, occlusion_data: FaceOcclusionData) -> Self {
         let position = Vec3::from(position);
 
         let fx = face_count.x * BLOCK_SIZE;
         let fy = face_count.y * BLOCK_SIZE;
 
-        let (tl_vertex, tr_vertex, bl_vertex, br_vertex) = match face_direction {
+        let (tl_vertex, tr_vertex, bl_vertex, br_vertex, tl_occlusion, tr_occlusion, bl_occlusion, br_occlusion) = match face_direction {
             FaceDirection::Front => (
                 // when looking at front, up is direction of positive y axis
                 Vec3::new(fx, fy, BLOCK_SIZE),
                 Vec3::new(0.0, fy, BLOCK_SIZE),
                 Vec3::new(fx, 0.0, BLOCK_SIZE),
                 Vec3::new(0.0, 0.0, BLOCK_SIZE),
+                occlusion_data.x_pos_y_pos,
+                occlusion_data.x_neg_y_pos,
+                occlusion_data.x_pos_y_neg,
+                occlusion_data.x_neg_y_neg,
             ),
             FaceDirection::Back => (
                 // when looking at back, up is direction of positive y axis
@@ -180,6 +188,10 @@ impl FaceMeshData {
                 Vec3::new(fx, fy, 0.0),
                 Vec3::new(0.0, 0.0, 0.0),
                 Vec3::new(fx, 0.0, 0.0),
+                occlusion_data.x_neg_y_pos,
+                occlusion_data.x_pos_y_pos,
+                occlusion_data.x_neg_y_neg,
+                occlusion_data.x_pos_y_neg,
             ),
             FaceDirection::Top => (
                 // when looking at top, up is direction of positive z axis
@@ -187,6 +199,10 @@ impl FaceMeshData {
                 Vec3::new(fx, BLOCK_SIZE, fy),
                 Vec3::new(0.0, BLOCK_SIZE, 0.0),
                 Vec3::new(fx, BLOCK_SIZE, 0.0),
+                occlusion_data.x_neg_y_pos,
+                occlusion_data.x_pos_y_pos,
+                occlusion_data.x_neg_y_neg,
+                occlusion_data.x_pos_y_neg,
             ),
             FaceDirection::Bottom => (
                 // when looking at bottom, up is direction of positive z axis
@@ -194,6 +210,10 @@ impl FaceMeshData {
                 Vec3::new(0.0, 0.0, fy),
                 Vec3::new(fx, 0.0, 0.0),
                 Vec3::new(0.0, 0.0, 0.0),
+                occlusion_data.x_pos_y_pos,
+                occlusion_data.x_neg_y_pos,
+                occlusion_data.x_pos_y_neg,
+                occlusion_data.x_neg_y_neg,
             ),
             FaceDirection::Left => (
                 // when looking at laft, up is direction of positive y axis
@@ -201,6 +221,10 @@ impl FaceMeshData {
                 Vec3::new(0.0, fx, 0.0),
                 Vec3::new(0.0, 0.0, fy),
                 Vec3::new(0.0, 0.0, 0.0),
+                occlusion_data.x_pos_y_pos,
+                occlusion_data.x_pos_y_neg,
+                occlusion_data.x_neg_y_pos,
+                occlusion_data.x_neg_y_neg,
             ),
             FaceDirection::Right => (
                 // when looking at right, up is direction of positive y axis
@@ -208,6 +232,10 @@ impl FaceMeshData {
                 Vec3::new(BLOCK_SIZE, fx, fy),
                 Vec3::new(BLOCK_SIZE, 0.0, 0.0),
                 Vec3::new(BLOCK_SIZE, 0.0, fy),
+                occlusion_data.x_pos_y_neg,
+                occlusion_data.x_pos_y_pos,
+                occlusion_data.x_neg_y_neg,
+                occlusion_data.x_neg_y_pos,
             ),
         };
 
@@ -226,6 +254,10 @@ impl FaceMeshData {
             tr_vertex: tr_vertex + position,
             bl_vertex: bl_vertex + position,
             br_vertex: br_vertex + position,
+            tl_occlude: FaceOcclusionData::occlusion_value_to_float(tl_occlusion),
+            tr_occlude: FaceOcclusionData::occlusion_value_to_float(tr_occlusion),
+            bl_occlude: FaceOcclusionData::occlusion_value_to_float(bl_occlusion),
+            br_occlude: FaceOcclusionData::occlusion_value_to_float(br_occlusion),
             uv_base: face.texture_data.expect("uv not created for texture map yet").uv_base,
             face_count,
             rotation: face.rotation,
@@ -253,7 +285,12 @@ impl FaceMeshData {
         };
 
         buffers.face_count_buffer.extend_from_slice(&face_count_verticies);
-        buffers.shading_buffer.extend_from_slice(&[1.0, 1.0, 1.0, 1.0]);
+        buffers.shading_buffer.extend_from_slice(&[
+            self.tl_occlude,
+            self.tr_occlude,
+            self.br_occlude,
+            self.bl_occlude,
+        ]);
 
         buffers.index_buffer.extend_from_slice(&[0, 1, 2, 2, 3, 0].map(|n| n + index_base));
     }
@@ -319,6 +356,23 @@ fn block_pos_for_layer(face: FaceDirection, layer: i32, x: i32, y: i32) -> Block
     }
 }
 
+/// The ambient occlusion level of each vertex on a face
+/// 
+/// The value is a number from 0-3, with 3 being darker and 0 being completely light (no occlusion)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct FaceOcclusionData {
+    x_neg_y_neg: u8,
+    x_neg_y_pos: u8,
+    x_pos_y_neg: u8,
+    x_pos_y_pos: u8,
+}
+
+impl FaceOcclusionData {
+    fn occlusion_value_to_float(occlusion_value: u8) -> f32 {
+        (4 - occlusion_value) as f32 / 4.0
+    }
+}
+
 fn mesh_layer(
     blocks: &ChunkMeshData,
     models: &[BlockModel],
@@ -359,6 +413,30 @@ fn mesh_layer(
         model.get_face(face.opposite_face()).is_occluder()
     };
 
+    let vertex_occlusion_level = |x, y| {
+        let xn_yn = is_occluded(x - 1, y - 1) as u8;
+        let xn_yp = is_occluded(x - 1, y) as u8;
+        let xp_yn = is_occluded(x, y - 1) as u8;
+        let xp_yp = is_occluded(x, y) as u8;
+
+        let mut occlusion_level = xn_yn + xn_yp + xp_yn + xp_yp;
+        // if the vertex is in a corner formed by only 2 blocks, the occlusion level needs to be 3
+        if (xn_yn == 1 && xp_yp == 1) || (xn_yp == 1 && xp_yn == 1) {
+            occlusion_level = 3;
+        }
+
+        occlusion_level
+    };
+
+    let face_occlusion_data = |x, y| {
+        FaceOcclusionData {
+            x_neg_y_neg: vertex_occlusion_level(x, y),
+            x_neg_y_pos: vertex_occlusion_level(x, y + 1),
+            x_pos_y_neg: vertex_occlusion_level(x + 1, y),
+            x_pos_y_pos: vertex_occlusion_level(x + 1, y + 1),
+        }
+    };
+
     for x in 0..(CHUNK_SIZE as i32) {
         let mut y = 0;
         while y < CHUNK_SIZE as i32 {
@@ -382,6 +460,9 @@ fn mesh_layer(
                 continue;
             }
 
+            // occlusion data of original face
+            let occlusion_data = face_occlusion_data(x, y);
+
             // x and y length of greedy meshed region
             let mut x_len = 1;
             let mut y_len = 1;
@@ -397,7 +478,7 @@ fn mesh_layer(
                     break;
                 }
 
-                if !block_face.can_merge_with(&get_model(x, y_pos).get_face(face)) || is_occluded(x, y_pos) {
+                if !block_face.can_merge_with(&get_model(x, y_pos).get_face(face)) || is_occluded(x, y_pos) || face_occlusion_data(x, y_pos) != occlusion_data {
                     break;
                 }
 
@@ -423,7 +504,7 @@ fn mesh_layer(
                         break 'outer;
                     }
 
-                    if !block_face.can_merge_with(&get_model(x_pos, y_pos + y).get_face(face)) {
+                    if !block_face.can_merge_with(&get_model(x_pos, y_pos + y).get_face(face)) || face_occlusion_data(x_pos, y_pos + y) != occlusion_data {
                         // don't mark it as visited here, we still might generate face later
                         break 'outer;
                     }
@@ -445,6 +526,7 @@ fn mesh_layer(
                 get_block_pos(x, y),
                 face_count,
                 face,
+                occlusion_data,
             );
 
             face_mesh_data.insert_into_bufers(buffers);

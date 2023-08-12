@@ -30,7 +30,7 @@ impl Plugin for MineconePlugin {
                 LogDiagnosticsPlugin::default(),
                 FrameTimeDiagnosticsPlugin::default(),
                 // NOTE: this plugin causes a lot of lag with larger render distances
-                WorldInspectorPlugin::new(),
+                //WorldInspectorPlugin::new(),
             ))
             .add_plugins((
                 debug::DebugPlugin,
