@@ -100,7 +100,6 @@ pub(super) fn poll_chunk_mesh_tasks(
 ) {
     for (entity, task) in tasks.iter() {
         if let Some(mesh) = task.0.poll() {
-            println!("remesh finished");
             let mut entity_commands = commands.entity(entity);
             entity_commands.remove::<ChunkMeshTask>();
 
