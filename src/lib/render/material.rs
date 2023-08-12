@@ -41,6 +41,7 @@ impl Material for BlockMaterial {
             Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
             ATTRIBUTE_UV_BASE.at_shader_location(1),
             ATTRIBUTE_FACE_COUNT.at_shader_location(2),
+            ATTRIBUTE_SHADING.at_shader_location(3),
         ])?;
 
         descriptor.vertex.buffers = vec![vertex_layout];
@@ -63,6 +64,13 @@ pub const ATTRIBUTE_FACE_COUNT: MeshVertexAttribute = MeshVertexAttribute::new(
     "Vertex_Face_Count",
     13298431,
     VertexFormat::Float32x2,
+);
+
+/// This is a value between 0 - 1, and it is multiplied by the color of the block to simulate ambient occlusion
+pub const ATTRIBUTE_SHADING: MeshVertexAttribute = MeshVertexAttribute::new(
+    "Vertex_Shading",
+    124879128,
+    VertexFormat::Float32,
 );
 
 #[derive(Debug, Resource)]

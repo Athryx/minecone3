@@ -5,7 +5,7 @@ use strum::{FromRepr, EnumIter, IntoEnumIterator};
 
 use crate::blocks::{BlockStorage, BlockType, Block};
 use crate::blocks::utils::Rotation;
-use crate::render::{ATTRIBUTE_UV_BASE, ATTRIBUTE_FACE_COUNT};
+use crate::render::{ATTRIBUTE_UV_BASE, ATTRIBUTE_FACE_COUNT, ATTRIBUTE_SHADING};
 use crate::world::{CHUNK_SIZE, LockedChunkArea};
 use crate::types::*;
 
@@ -138,6 +138,7 @@ struct MeshBuffers {
     position_buffer: Vec<[f32; 3]>,
     uv_base_buffer: Vec<[f32; 2]>,
     face_count_buffer: Vec<[f32; 2]>,
+    shading_buffer: Vec<f32>,
     index_buffer: Vec<u32>,
 }
 
@@ -252,6 +253,7 @@ impl FaceMeshData {
         };
 
         buffers.face_count_buffer.extend_from_slice(&face_count_verticies);
+        buffers.shading_buffer.extend_from_slice(&[1.0, 1.0, 1.0, 1.0]);
 
         buffers.index_buffer.extend_from_slice(&[0, 1, 2, 2, 3, 0].map(|n| n + index_base));
     }
@@ -303,6 +305,7 @@ pub fn generate_mesh(blocks: &ChunkMeshData, models: &[BlockModel]) -> Option<Me
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, buffers.position_buffer);
     mesh.insert_attribute(ATTRIBUTE_UV_BASE, buffers.uv_base_buffer);
     mesh.insert_attribute(ATTRIBUTE_FACE_COUNT, buffers.face_count_buffer);
+    mesh.insert_attribute(ATTRIBUTE_SHADING, buffers.shading_buffer);
     mesh.set_indices(Some(Indices::U32(buffers.index_buffer)));
 
     Some(mesh)

@@ -14,12 +14,14 @@ struct VertexInput {
 	@location(0) position: vec3<f32>,
 	@location(1) uv_base: vec2<f32>,
 	@location(2) face_count: vec2<f32>,
+	@location(3) shading: f32,
 }
 
 struct VertexOutput {
 	@builtin(position) clip_position: vec4<f32>,
 	@location(0) uv_base: vec2<f32>,
 	@location(1) face_count: vec2<f32>,
+	@location(2) shading: f32,
 }
 
 @vertex
@@ -33,6 +35,7 @@ fn vertex(vertex_input: VertexInput) -> VertexOutput {
 
 	out.uv_base = vertex_input.uv_base;
 	out.face_count = vertex_input.face_count;
+	out.shading = vertex_input.shading;
 
 	return out;
 }
@@ -44,5 +47,6 @@ fn fragment(fragment_input: VertexOutput) -> @location(0) vec4<f32> {
 		fragment_input.face_count.y % 1.0,
 	);
 
-	return textureSample(texture_map, texture_sampler, fragment_input.uv_base + BLOCK_UV_SIZE * block_coord);
+	return textureSample(texture_map, texture_sampler, fragment_input.uv_base + BLOCK_UV_SIZE * block_coord)
+		* vec4<f32>(fragment_input.shading, fragment_input.shading, fragment_input.shading, 1.0);
 }
