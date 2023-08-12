@@ -1,17 +1,12 @@
-use std::hash::BuildHasherDefault;
 use std::ops::{Index, IndexMut};
 
 use bevy::prelude::*;
-use derive_more::{Add, Sub, Mul, Div};
-use dashmap::DashMap;
-use rustc_hash::FxHasher;
+use derive_more::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div, DivAssign};
 
-use crate::world::CHUNK_SIZE;
+use crate::world::{CHUNK_SIZE, ChunkRegion};
 
 /// Size of block in meters
 pub const BLOCK_SIZE: f32 = 0.5;
-
-pub type FxDashMap<K, V> = DashMap<K, V, BuildHasherDefault<FxHasher>>;
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy)]
@@ -21,7 +16,7 @@ pub enum VecAxis {
     Z = 2,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Deref, DerefMut, Add, Sub, Mul, Div)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Deref, DerefMut, Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div, DivAssign)]
 pub struct ChunkPos(pub IVec3);
 
 impl ChunkPos {
@@ -117,6 +112,40 @@ impl BlockPos {
                 CHUNK_SIZE as i32 + ((elem + 1) % CHUNK_SIZE as i32) - 1
             }
         }))
+    }
+
+    // Gets a chunk region of all the chunks which this block is adjcent to (including diagonally)
+    pub fn adjacent_chunks(&self) -> ChunkRegion {
+        let local_pos = self.as_chunk_local();
+
+        let mut chunk_pos = ChunkPos::from(*self);
+        let mut size = UVec3::new(1, 1, 1);
+
+        if local_pos.x == 0 {
+            chunk_pos -= ChunkPos::X;
+            size += UVec3::X;
+        } else if local_pos.x == CHUNK_SIZE as i32 - 1 {
+            size += UVec3::X;
+        }
+
+        if local_pos.y == 0 {
+            chunk_pos -= ChunkPos::Y;
+            size += UVec3::Y;
+        } else if local_pos.y == CHUNK_SIZE as i32 - 1 {
+            size += UVec3::Y;
+        }
+
+        if local_pos.z == 0 {
+            chunk_pos -= ChunkPos::Z;
+            size += UVec3::Z;
+        } else if local_pos.z == CHUNK_SIZE as i32 - 1 {
+            size += UVec3::Z;
+        }
+
+        ChunkRegion {
+            min_chunk: chunk_pos,
+            size,
+        }
     }
 }
 

@@ -1,4 +1,4 @@
-use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+use std::sync::Arc;
 
 use bevy::{prelude::*, utils::HashMap};
 use parking_lot::{RwLockReadGuard, RwLockWriteGuard};
@@ -212,9 +212,15 @@ impl<'a> ChunkLockCacheMut<'a> {
     fn new_block(&mut self, block_pos: BlockPos, block_type: BlockType) -> Option<Block> {
         self.lock_chunk(ChunkPos::from(block_pos));
 
-        self.mark_dirty();
+        // do this before marking chunks as dirty to ensure lock chunk succeeded
+        let inner = self.inner.as_mut()?;
 
-        let chunk_data = self.get_chunk_data_mut()?;
-        Some(chunk_data.blocks.new_block(block_pos.as_chunk_local(), block_type))
+        for chunk_pos in block_pos.adjacent_chunks().iter_chunks() {
+            if let Some(chunk) = self.world.chunks.get(&chunk_pos) {
+                chunk.mark_dirty(self.world);
+            }
+        }
+
+        Some(inner.lock.blocks.new_block(block_pos.as_chunk_local(), block_type))
     }
 }
