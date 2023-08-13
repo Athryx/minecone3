@@ -1,11 +1,14 @@
 use bevy::prelude::*;
 
-use crate::{items::{WeaponUseTime, ItemUseSet}, GameSet};
+use crate::{items::{WeaponUseTime, ItemUseSet, ItemStack}, GameSet};
 
 use super::ControlledPlayer;
 
 #[derive(Debug, Default, Component)]
 pub struct Inventory {
+    /// All the items in the inventory, with row 0 being the hotbar
+    items: [[Option<ItemStack>; 10]; 5],
+    selected_hotbar_index: usize,
     pub(super) selected_item: Option<Entity>,
 }
 

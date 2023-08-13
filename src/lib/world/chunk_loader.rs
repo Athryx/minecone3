@@ -7,7 +7,7 @@ use bevy::render::primitives::Aabb;
 use parking_lot::RwLock;
 
 use crate::task::{Task, TaskPool};
-use crate::{types::*, render::GlobalBlockMaterial, worldgen::generate_chunk};
+use crate::{types::*, render::GlobalBlockMaterial, worldgen::Worldgen};
 use super::CHUNK_SIZE;
 use super::{World, EcsChunk, Chunk, chunk::ChunkData, ChunkRegion};
 
@@ -92,7 +92,7 @@ pub fn queue_generate_chunks(
                 if !last_region.contains_chunk(chunk_pos) {
                     // load chunks
                     let load_task = task_pool.spawn(move || {
-                        generate_chunk(chunk_pos)
+                        Worldgen::get().generate_chunk(chunk_pos)
                     });
 
                     let half_chunk_size = CHUNK_SIZE as f32 * BLOCK_SIZE * 0.5;

@@ -9,6 +9,12 @@ use debug_miner::DebugMiner;
 use crate::GameSet;
 
 #[derive(Debug)]
+pub struct ItemStack {
+    pub item: ItemType,
+    pub stack_size: usize,
+}
+
+#[derive(Debug)]
 struct ItemProperties {
     use_time: usize,
 }

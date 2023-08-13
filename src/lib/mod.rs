@@ -24,6 +24,8 @@ pub struct MineconePlugin;
 
 impl Plugin for MineconePlugin {
     fn build(&self, app: &mut App) {
+        worldgen::Worldgen::init(128947);
+
         app.insert_resource(Msaa::Sample4)
             .add_plugins((
                 WireframePlugin::default(),

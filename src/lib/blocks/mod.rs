@@ -9,6 +9,8 @@ mod air;
 use air::Air;
 mod dirt;
 use dirt::Dirt;
+mod grass;
+use grass::Grass;
 
 const BLOCK_ID_MASK: u32 = 0xfff;
 const INLINE_BLOCK_HP_MASK: u32 = 0xfff000;
@@ -158,6 +160,7 @@ register_blocks! {
     inline {
         Air,
         Dirt,
+        Grass,
     },
     extended {
         ,

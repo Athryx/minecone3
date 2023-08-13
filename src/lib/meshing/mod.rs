@@ -35,6 +35,16 @@ pub struct BlockFace {
     pub texture_data: Option<FaceTextureData>,
 }
 
+impl BlockFace {
+    pub fn solid_face(path: &'static str) -> Self {
+        BlockFace {
+            rotation: Rotation::Deg0,
+            face_type: BlockFaceType::Full(path),
+            texture_data: None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct FaceTextureData {
     /// position of top left corner of this faces texture in uv map
@@ -77,6 +87,42 @@ pub struct BlockModel {
 }
 
 impl BlockModel {
+    pub fn new(face: BlockFace) -> Self {
+        BlockModel {
+            faces: [face; 6],
+        }
+    }
+
+    pub fn set_front(mut self, face: BlockFace) -> Self {
+        self.faces[FaceDirection::Front as usize] = face;
+        self
+    }
+
+    pub fn set_back(mut self, face: BlockFace) -> Self {
+        self.faces[FaceDirection::Back as usize] = face;
+        self
+    }
+
+    pub fn set_top(mut self, face: BlockFace) -> Self {
+        self.faces[FaceDirection::Top as usize] = face;
+        self
+    }
+
+    pub fn set_bottom(mut self, face: BlockFace) -> Self {
+        self.faces[FaceDirection::Bottom as usize] = face;
+        self
+    }
+
+    pub fn set_left(mut self, face: BlockFace) -> Self {
+        self.faces[FaceDirection::Left as usize] = face;
+        self
+    }
+
+    pub fn set_right(mut self, face: BlockFace) -> Self {
+        self.faces[FaceDirection::Right as usize] = face;
+        self
+    }
+
     fn get_face(&self, face: FaceDirection) -> BlockFace {
         self.faces[face as usize]
     }
@@ -138,8 +184,8 @@ struct MeshBuffers {
     position_buffer: Vec<[f32; 3]>,
     uv_base_buffer: Vec<[f32; 2]>,
     face_count_buffer: Vec<[f32; 2]>,
-    index_buffer: Vec<u32>,
     shading_buffer: Vec<f32>,
+    index_buffer: Vec<u32>,
 }
 
 impl MeshBuffers {

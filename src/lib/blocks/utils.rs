@@ -1,5 +1,7 @@
 //! Various utilities for different blocks to use
 
+use crate::meshing::{BlockFace, BlockModel};
+
 /// Rotation counterclockwise
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
