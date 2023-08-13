@@ -1,6 +1,6 @@
 //! Various utilities for different blocks to use
 
-use crate::meshing::{BlockFace, BlockModel};
+use crate::meshing::{BlockFaceUv, BlockModelUv};
 
 /// Rotation counterclockwise
 #[repr(u8)]

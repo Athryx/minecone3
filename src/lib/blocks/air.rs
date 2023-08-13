@@ -4,16 +4,8 @@ use super::*;
 pub struct Air;
 
 impl BaseBlock for Air {
-    fn model() -> BlockModel {
-        let air_face = BlockFace {
-            rotation: utils::Rotation::Deg0,
-            face_type: BlockFaceType::Empty,
-            texture_data: None,
-        };
-
-        BlockModel {
-            faces: [air_face; 6],
-        }
+    fn model(texture_builder: &mut TextureBuilder) -> BlockModel {
+        BlockModel::new(BlockFace::Empty)
     }
 
     fn properties() -> BlockProperties {

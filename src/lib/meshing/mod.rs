@@ -11,61 +11,46 @@ use crate::types::*;
 
 mod chunk_area;
 
-/// All the models used by blocks, index the block model vec with the blocks id to get it model
-#[derive(Debug, Default, Resource)]
-pub struct BlockModels(pub Vec<BlockModel>);
-
 /// Represents the type of a block face
 #[derive(Debug, Clone, Copy)]
 pub enum BlockFaceType {
-    /// A square side of a block with the given texture
-    Full(&'static str),
+    /// A square side of a block
+    Full(TextureUvData),
     /// The side of a sloped block
-    HalfSlope,
+    //HalfSlope,
     /// The block has now block face, either if it is air or has a custom model
     Empty,
 }
 
 /// A face of a block
 #[derive(Debug, Clone, Copy)]
-pub struct BlockFace {
+pub struct BlockFaceUv {
     pub rotation: Rotation,
     pub face_type: BlockFaceType,
-    // will be none if the block has no texture data, like air
-    pub texture_data: Option<FaceTextureData>,
 }
 
-impl BlockFace {
-    pub fn solid_face(path: &'static str) -> Self {
-        BlockFace {
-            rotation: Rotation::Deg0,
-            face_type: BlockFaceType::Full(path),
-            texture_data: None,
-        }
-    }
-}
-
+/// Info about uv data for the given block face
 #[derive(Debug, Clone, Copy)]
-pub struct FaceTextureData {
+pub struct TextureUvData {
     /// position of top left corner of this faces texture in uv map
     pub uv_base: Vec2,
     /// index in the texture map, used to determine if 2 faces are the same
     pub texture_map_index: usize,
 }
 
-impl BlockFace {
+impl BlockFaceUv {
     fn is_visible(&self) -> bool {
         matches!(self.face_type, BlockFaceType::Full(_))
     }
 
     /// Returns true if this face can be merged with the other face in the greedy meshing algorithm
-    fn can_merge_with(&self, other: &BlockFace) -> bool {
+    fn can_merge_with(&self, other: &BlockFaceUv) -> bool {
         // if either of these do not have texture faces, they are air and cannot be merged
-        let Some(this_texture_data) = self.texture_data else {
+        let BlockFaceType::Full(this_texture_data) = self.face_type else {
             return false;
         };
 
-        let Some(other_texture_data) = other.texture_data else {
+        let BlockFaceType::Full(other_texture_data) = other.face_type else {
             return false;
         };
 
@@ -81,56 +66,26 @@ impl BlockFace {
 
 /// The model of a block
 #[derive(Debug, Clone, Copy)]
-pub struct BlockModel {
-    pub faces: [BlockFace; 6],
+pub struct BlockModelUv {
+    pub faces: [BlockFaceUv; 6],
     //custom_model: Option<TODO>,
 }
 
-impl BlockModel {
-    pub fn new(face: BlockFace) -> Self {
-        BlockModel {
+impl BlockModelUv {
+    pub fn new(face: BlockFaceUv) -> Self {
+        BlockModelUv {
             faces: [face; 6],
         }
     }
 
-    pub fn set_front(mut self, face: BlockFace) -> Self {
-        self.faces[FaceDirection::Front as usize] = face;
-        self
-    }
-
-    pub fn set_back(mut self, face: BlockFace) -> Self {
-        self.faces[FaceDirection::Back as usize] = face;
-        self
-    }
-
-    pub fn set_top(mut self, face: BlockFace) -> Self {
-        self.faces[FaceDirection::Top as usize] = face;
-        self
-    }
-
-    pub fn set_bottom(mut self, face: BlockFace) -> Self {
-        self.faces[FaceDirection::Bottom as usize] = face;
-        self
-    }
-
-    pub fn set_left(mut self, face: BlockFace) -> Self {
-        self.faces[FaceDirection::Left as usize] = face;
-        self
-    }
-
-    pub fn set_right(mut self, face: BlockFace) -> Self {
-        self.faces[FaceDirection::Right as usize] = face;
-        self
-    }
-
-    fn get_face(&self, face: FaceDirection) -> BlockFace {
+    fn get_face(&self, face: FaceDirection) -> BlockFaceUv {
         self.faces[face as usize]
     }
 }
 
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, FromRepr, EnumIter)]
-enum FaceDirection {
+pub enum FaceDirection {
     /// Z positive
     Front,
     /// Z negative
@@ -210,7 +165,7 @@ struct FaceMeshData {
 }
 
 impl FaceMeshData {
-    fn new(face: BlockFace, position: BlockPos, face_count: Vec2, face_direction: FaceDirection, occlusion_data: FaceOcclusionData) -> Self {
+    fn new(face: BlockFaceUv, position: BlockPos, face_count: Vec2, face_direction: FaceDirection, occlusion_data: FaceOcclusionData) -> Self {
         let position = Vec3::from(position);
 
         let fx = face_count.x * BLOCK_SIZE;
@@ -295,6 +250,10 @@ impl FaceMeshData {
                 | FaceDirection::Back => face_count,
         };
 
+        let BlockFaceType::Full(uv_data) = face.face_type else {
+            panic!("face type inserted into mesh has not uv data")
+        };
+
         FaceMeshData {
             tl_vertex: tl_vertex + position,
             tr_vertex: tr_vertex + position,
@@ -304,7 +263,7 @@ impl FaceMeshData {
             tr_occlude: FaceOcclusionData::occlusion_value_to_float(tr_occlusion),
             bl_occlude: FaceOcclusionData::occlusion_value_to_float(bl_occlusion),
             br_occlude: FaceOcclusionData::occlusion_value_to_float(br_occlusion),
-            uv_base: face.texture_data.expect("uv not created for texture map yet").uv_base,
+            uv_base: uv_data.uv_base,
             face_count,
             rotation: face.rotation,
         }
@@ -365,7 +324,7 @@ impl<'a> ChunkMeshData<'a> {
 /// Generates a mesh for the given chunk, or returns None if the mesh has no faces
 // An empty mesh cannot be used here because the custom shader needs all the attributes to exist,
 // and if an attribute exists but it has an empty array, this causes a ton of lag in bevy for some reason
-pub fn generate_mesh(blocks: &ChunkMeshData, models: &[BlockModel]) -> Option<Mesh> {
+pub fn generate_mesh(blocks: &ChunkMeshData, models: &[BlockModelUv]) -> Option<Mesh> {
     if blocks.is_empty() {
         return None;
     }
@@ -421,7 +380,7 @@ impl FaceOcclusionData {
 
 fn mesh_layer(
     blocks: &ChunkMeshData,
-    models: &[BlockModel],
+    models: &[BlockModelUv],
     buffers: &mut MeshBuffers,
     visit_map: &mut VisitedBlockMap,
     face: FaceDirection,

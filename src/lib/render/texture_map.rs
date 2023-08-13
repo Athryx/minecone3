@@ -1,13 +1,15 @@
-use bevy::asset::{LoadState, AssetPath};
+use bevy::asset::LoadState;
 use bevy::prelude::*;
 use bevy::render::render_resource::{SamplerDescriptor, AddressMode, FilterMode};
 use bevy::render::texture::ImageSampler;
-use bevy::utils::{HashMap, HashSet};
+use bevy::utils::HashMap;
+use image::imageops::overlay;
 use image::{DynamicImage, GenericImage};
 use strum::IntoEnumIterator;
 
 use crate::blocks::BlockType;
-use crate::meshing::{BlockFaceType, BlockModels, FaceTextureData};
+use crate::blocks::utils::Rotation;
+use crate::meshing::{BlockFaceType, BlockFaceUv, TextureUvData, FaceDirection, BlockModelUv};
 
 use super::BLOCK_MODELS;
 use super::material::{GlobalBlockMaterial, BlockMaterial};
@@ -19,28 +21,133 @@ const TEXTURE_SIZE: u32 = 16;
 // make sure to keep this up to date with the shaders texture size
 const TEXTURE_MAP_SIZE: u32 = 4;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum BlockFaceTexture {
+    Image(&'static str),
+    Overlay {
+        top: TextureKey,
+        bottom: TextureKey,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct TextureKey(usize);
+
+/// Passed in to the `block_model` function of each block to create their textures for each face
+#[derive(Debug, Default)]
+pub struct TextureBuilder {
+    key_to_texture_map: HashMap<BlockFaceTexture, TextureKey>,
+    textures: Vec<BlockFaceTexture>,
+}
+
+impl TextureBuilder {
+    fn insert_block_face_texture(&mut self, texture: BlockFaceTexture) -> TextureKey {
+        if let Some(texture_key) = self.key_to_texture_map.get(&texture) {
+            *texture_key
+        } else {
+            let texture_key = TextureKey(self.textures.len());
+            self.textures.push(texture);
+            self.key_to_texture_map.insert(texture, texture_key);
+            texture_key
+        }
+    }
+
+    pub fn image(&mut self, image_path: &'static str) -> TextureKey {
+        self.insert_block_face_texture(BlockFaceTexture::Image(image_path))
+    }
+
+    pub fn overlay(&mut self, top: TextureKey, bottom: TextureKey) -> TextureKey {
+        self.insert_block_face_texture(BlockFaceTexture::Overlay {
+            top,
+            bottom,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum BlockFace {
+    Full(TextureKey),
+    Empty,
+}
+
+/// The model of a block
+#[derive(Debug, Clone, Copy)]
+pub struct BlockModel {
+    pub faces: [BlockFace; 6],
+    //custom_model: Option<TODO>,
+}
+
+impl BlockModel {
+    pub fn new(face: BlockFace) -> Self {
+        BlockModel {
+            faces: [face; 6],
+        }
+    }
+
+    pub fn set_front(mut self, face: BlockFace) -> Self {
+        self.faces[FaceDirection::Front as usize] = face;
+        self
+    }
+
+    pub fn set_back(mut self, face: BlockFace) -> Self {
+        self.faces[FaceDirection::Back as usize] = face;
+        self
+    }
+
+    pub fn set_top(mut self, face: BlockFace) -> Self {
+        self.faces[FaceDirection::Top as usize] = face;
+        self
+    }
+
+    pub fn set_bottom(mut self, face: BlockFace) -> Self {
+        self.faces[FaceDirection::Bottom as usize] = face;
+        self
+    }
+
+    pub fn set_left(mut self, face: BlockFace) -> Self {
+        self.faces[FaceDirection::Left as usize] = face;
+        self
+    }
+
+    pub fn set_right(mut self, face: BlockFace) -> Self {
+        self.faces[FaceDirection::Right as usize] = face;
+        self
+    }
+}
+
 #[derive(Debug, Component)]
-pub struct TextureLoadJob(HashSet<Handle<Image>>);
+pub struct TextureLoadJob {
+    /// A map between the path and the image
+    images: HashMap<&'static str, Handle<Image>>,
+    texture_builder: TextureBuilder,
+    block_models: Vec<BlockModel>,
+}
 
 pub fn load_textures(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut block_models: ResMut<BlockModels>,
 ) {
-    let mut load_jobs = HashSet::new();
+    let mut texture_builder = TextureBuilder::default();
+    let mut block_models = Vec::new();
 
     for block_type in BlockType::iter() {
-        let model = block_type.model();
-        block_models.0.push(model.clone());
+        // this iterates BlockType in the correct order they will need to be to index the block model array,
+        // so push here will have correct order
+        block_models.push(block_type.model(&mut texture_builder));
+    }
 
-        for face in model.faces.iter() {
-            if let BlockFaceType::Full(texture) = face.face_type {
-                load_jobs.insert(asset_server.load(texture));
-            }
+    let mut images = HashMap::new();
+    for texture in texture_builder.textures.iter() {
+        if let BlockFaceTexture::Image(image_path) = texture {
+            images.insert(*image_path, asset_server.load(*image_path));
         }
     }
 
-    commands.spawn(TextureLoadJob(load_jobs));
+    commands.spawn(TextureLoadJob {
+        images,
+        texture_builder,
+        block_models,
+    });
 }
 
 pub fn poll_load_status(
@@ -48,8 +155,8 @@ pub fn poll_load_status(
     asset_server: Res<AssetServer>,
     mut next_state: ResMut<NextState<TextureLoadState>>,
 ) {
-    let handle_id_iter = query.single().0
-        .iter()
+    let handle_id_iter = query.single().images
+        .values()
         .map(Handle::id);
 
     match asset_server.get_group_load_state(handle_id_iter) {
@@ -61,70 +168,80 @@ pub fn poll_load_status(
 
 pub fn generate_texture_map(
     query: Query<(Entity, &TextureLoadJob)>,
-    asset_server: Res<AssetServer>,
     mut textures: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<BlockMaterial>>,
-    mut block_models: ResMut<BlockModels>,
     mut commands: Commands,
 ) {
-    let (load_job_id, loaded_textures) = query.single();
+    let (load_job_id, load_job) = query.single();
 
-    // the length of the texture map in block textures
-    // the texture map is a square
+    assert!(
+        load_job.texture_builder.textures.len() <= (TEXTURE_MAP_SIZE * TEXTURE_MAP_SIZE) as usize,
+        "texture map size is too small",
+    );
+
     let mut texture_map = DynamicImage::new_rgba8(
         TEXTURE_MAP_SIZE * TEXTURE_SIZE,
         TEXTURE_MAP_SIZE * TEXTURE_SIZE
     );
 
-    // the uv offset between each texture
-    let texture_step_size = 1.0 / TEXTURE_MAP_SIZE as f32;
+    // inserts the image iat the given index into the texture map
+    // returns the texture uv data for the inserted image
+    // NOTE: image needs to be explicitly typed here because for some reason ommitting the type causes ownership error
+    let mut insert_texture = |index: usize, image: &DynamicImage| {
+        let x = index as u32 % TEXTURE_MAP_SIZE;
+        let y = index as u32 / TEXTURE_MAP_SIZE;
 
-    let mut asset_path_to_texture_data_map = HashMap::new();
-
-    // stitch textures together
-    for (i, texture_handle) in loaded_textures.0.iter().enumerate() {
-        let x = i as u32 % TEXTURE_MAP_SIZE;
-        let y = i as u32 / TEXTURE_MAP_SIZE;
-
-        assert!(y < TEXTURE_MAP_SIZE, "too many textures for texture map of size {}", TEXTURE_MAP_SIZE);
-
-        let uv = Vec2::new(x as f32, y as f32) * texture_step_size;
-
-        // TODO: stitch textures
-        let texture = textures
-            .get(texture_handle)
-            .unwrap()
-            .clone()
-            .try_into_dynamic()
-            .unwrap();
-
-        assert!(
-            texture.width() == TEXTURE_SIZE && texture.height() == TEXTURE_SIZE,
-            "invalid sized block texture",
-        );
-
-        texture_map.copy_from(&texture, x * TEXTURE_SIZE, y * TEXTURE_SIZE)
+        texture_map.copy_from(image, x * TEXTURE_SIZE, y * TEXTURE_SIZE)
             .expect("could not stitch texture map");
 
-        let asset_path = asset_server.get_handle_path(texture_handle).unwrap();
+        let uv_base = Vec2::new(x as f32 / TEXTURE_MAP_SIZE as f32, y as f32 / TEXTURE_MAP_SIZE as f32);
 
-        asset_path_to_texture_data_map.insert(asset_path, FaceTextureData {
-            uv_base: uv,
-            texture_map_index: i,
-        });
-    }
+        TextureUvData {
+            uv_base,
+            texture_map_index: index,
+        }
+    };
 
-    // update block models with uv coordinates
-    for model in block_models.0.iter_mut() {
-        for face in model.faces.iter_mut() {
-            if let BlockFaceType::Full(texture) = face.face_type {
-                let texture_data = asset_path_to_texture_data_map.get(&AssetPath::from(texture)).unwrap();
-                face.texture_data = Some(*texture_data);
+    // a map of texture keys to the image data they represent
+    let mut image_data_map = HashMap::new();
+    // a map of texture keys to their corresponding uv data
+    let mut uv_data_map = HashMap::new();
+
+    // generate texture map
+    for (i, texture) in load_job.texture_builder.textures.iter().enumerate() {
+        // a texture key is always the textures index in the array
+        let texture_key = TextureKey(i);
+
+        match texture {
+            BlockFaceTexture::Image(image_path) => {
+                // panic safety: if this texture exists, it should have been loaded
+                let image_handle = load_job.images.get(image_path).unwrap();
+                // panic safety: all images have been checked to make sure they are finished loading
+                let image = textures.get(image_handle).unwrap();
+                let dynamic_image = image.clone().try_into_dynamic().expect("unsupported texture format");
+
+                let uv_base = insert_texture(i, &dynamic_image);
+                uv_data_map.insert(texture_key, uv_base);
+
+                image_data_map.insert(texture_key, dynamic_image);
+            },
+            BlockFaceTexture::Overlay {
+                top,
+                bottom,
+            } => {
+                // panic safety: texture key can only reference an image that has already been processed, and thus is already inserted in the map
+                let top_image = image_data_map.get(top).unwrap();
+                let mut bottom_image = image_data_map.get(bottom).unwrap().clone();
+
+                overlay(&mut bottom_image, top_image, 0, 0);
+
+                let uv_base = insert_texture(i, &bottom_image);
+                uv_data_map.insert(texture_key, uv_base);
+
+                image_data_map.insert(texture_key, bottom_image);
             }
         }
     }
-    // update block models global
-    BLOCK_MODELS.set(block_models.0.clone()).unwrap();
 
     let mut texture_map = Image::from_dynamic(texture_map, true);
     texture_map.sampler_descriptor = ImageSampler::Descriptor(SamplerDescriptor {
@@ -140,6 +257,35 @@ pub fn generate_texture_map(
         texture_map: textures.add(texture_map),
     });
     commands.insert_resource(GlobalBlockMaterial(block_material));
+
+    // generate block models uv
+    let mut block_models_uv = Vec::new();
+    for model in load_job.block_models.iter() {
+        let mut uv_faces = [BlockFaceUv {
+            rotation: Rotation::Deg0,
+            face_type: BlockFaceType::Empty,
+        }; 6];
+
+        for (i, face) in model.faces.iter().enumerate() {
+            match face {
+                BlockFace::Full(texture_key) => {
+                    let uv_data = uv_data_map.get(texture_key).unwrap();
+    
+                    uv_faces[i].face_type = BlockFaceType::Full(*uv_data);
+                },
+                // default uv face is already set to empty
+                BlockFace::Empty => ()
+            }
+        }
+
+        let uv_model = BlockModelUv {
+            faces: uv_faces,
+        };
+
+        block_models_uv.push(uv_model);
+    }
+
+    BLOCK_MODELS.set(block_models_uv).expect("block models already initialized");
 
     commands.entity(load_job_id).despawn();
 }

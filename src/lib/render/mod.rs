@@ -2,12 +2,13 @@ use std::sync::OnceLock;
 
 use bevy::prelude::*;
 
-use crate::{meshing::{BlockModels, BlockModel}, GameSet};
+use crate::meshing::BlockModelUv;
+use crate::GameSet;
 
 mod material;
 pub use material::*;
 mod texture_map;
-use texture_map::*;
+pub use texture_map::*;
 
 use self::material::BlockMaterial;
 
@@ -18,26 +19,20 @@ const SKY_COLOR: Color = Color::Rgba {
     alpha: 1.0,
 };
 
-static BLOCK_MODELS: OnceLock<Vec<BlockModel>> = OnceLock::new();
+static BLOCK_MODELS: OnceLock<Vec<BlockModelUv>> = OnceLock::new();
 
-/// Returns the list of block models, may block at start while textures are being loaded
-pub fn block_models() -> &'static [BlockModel] {
-    loop {
-        // TODO: don't use a spinlock here
-        if let Some(block_models) = BLOCK_MODELS.get() {
-            return block_models;
-        }
-
-        std::hint::spin_loop();
-    }
+/// Returns the list of block models, panics if block models are not yet initialized
+/// 
+/// The block model for a block type can be found by indexing this array with the block type id
+pub fn block_models() -> &'static [BlockModelUv] {
+    BLOCK_MODELS.get().expect("block models are not yet initialized")
 }
 
 pub struct RenderPlugin;
 
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<BlockModels>()
-            .insert_resource(ClearColor(SKY_COLOR))
+        app.insert_resource(ClearColor(SKY_COLOR))
             .insert_resource(AmbientLight {
                 color: Color::WHITE,
                 brightness: 0.5,

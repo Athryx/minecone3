@@ -1,6 +1,6 @@
 use bytemuck::{bytes_of, bytes_of_mut};
 
-use crate::meshing::{BlockModel, BlockFace, BlockFaceType};
+use crate::render::{TextureBuilder, BlockModel, BlockFace};
 
 mod block_storage;
 pub use block_storage::BlockStorage;
@@ -85,7 +85,7 @@ pub struct BlockProperties {
 
 // Inline and extended blocks must implement this trait
 trait BaseBlock {
-    fn model() -> BlockModel;
+    fn model(texture_builder: &mut TextureBuilder) -> BlockModel;
     fn properties() -> BlockProperties;
 }
 
@@ -120,13 +120,13 @@ macro_rules! register_blocks {
         }
 
         impl BlockType {
-            pub fn model(&self) -> BlockModel {
+            pub fn model(&self, texture_builder: &mut TextureBuilder) -> BlockModel {
                 match self {
                     $(
-                        Self::$inline_blocks => $inline_blocks::model(),
+                        Self::$inline_blocks => $inline_blocks::model(texture_builder),
                     )*
                     $(
-                        Self::$extended_blocks => $extended_blocks::model(),
+                        Self::$extended_blocks => $extended_blocks::model(texture_builder),
                     )*
                 }
             }

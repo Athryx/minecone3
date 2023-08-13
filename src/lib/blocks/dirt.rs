@@ -4,10 +4,10 @@ use super::*;
 pub struct Dirt;
 
 impl BaseBlock for Dirt {
-    fn model() -> BlockModel {
-        let dirt_face = BlockFace::solid_face("textures/dirt.png");
+    fn model(texture_builder: &mut TextureBuilder) -> BlockModel {
+        let dirt_face = texture_builder.image("textures/dirt.png");
 
-        BlockModel::new(dirt_face)
+        BlockModel::new(BlockFace::Full(dirt_face))
     }
 
     fn properties() -> BlockProperties {
