@@ -8,8 +8,15 @@ impl BaseBlock for Grass {
         let dirt_face = texture_builder.image("textures/dirt.png");
         let grass_face = texture_builder.image("textures/grass.png");
 
-        BlockModel::new(BlockFace::Full(dirt_face))
+        let grass_side = texture_builder.image("textures/grass_side.png");
+        let grass_side = texture_builder.overlay(
+            grass_side,
+            dirt_face,
+        );
+
+        BlockModel::new(BlockFace::Full(grass_side))
             .set_top(BlockFace::Full(grass_face))
+            .set_bottom(BlockFace::Full(dirt_face))
     }
 
     fn properties() -> BlockProperties {
