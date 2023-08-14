@@ -62,6 +62,42 @@ impl TextureBuilder {
             bottom,
         })
     }
+
+    /// Returns a hashmap of the actual data for all texture keys given a mapping from loaded image paths to image data
+    fn generate_image_data(&self, images: &HashMap<&'static str, Handle<Image>>, image_data: &Assets<Image>) -> HashMap<TextureKey, DynamicImage> {
+        let mut out: HashMap<TextureKey, DynamicImage> = HashMap::new();
+
+        for (i, texture) in self.textures.iter().enumerate() {
+            // a texture key is always the textures index in the array
+            let texture_key = TextureKey(i);
+    
+            let image_data = match texture {
+                BlockFaceTexture::Image(image_path) => {
+                    // panic safety: if this texture exists, it should have been loaded
+                    let image_handle = images.get(image_path).unwrap();
+                    // panic safety: all images have been checked to make sure they are finished loading
+                    let image = image_data.get(image_handle).unwrap();
+                    image.clone().try_into_dynamic().expect("unsupported texture format")
+                },
+                BlockFaceTexture::Overlay {
+                    top,
+                    bottom,
+                } => {
+                    // panic safety: texture key can only reference an image that has already been processed, and thus is already inserted in the map
+                    let top_image = out.get(top).unwrap();
+                    let mut bottom_image = out.get(bottom).unwrap().clone();
+    
+                    overlay(&mut bottom_image, top_image, 0, 0);
+    
+                    bottom_image
+                }
+            };
+    
+            out.insert(texture_key, image_data);
+        }
+
+        out
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -205,37 +241,8 @@ pub fn generate_texture_map(
     };
 
     // a map of texture keys to the image data they represent
-    let mut image_data_map: HashMap<TextureKey, DynamicImage> = HashMap::new();
-
-    // generate texture map
-    for (i, texture) in load_job.texture_builder.textures.iter().enumerate() {
-        // a texture key is always the textures index in the array
-        let texture_key = TextureKey(i);
-
-        let image_data = match texture {
-            BlockFaceTexture::Image(image_path) => {
-                // panic safety: if this texture exists, it should have been loaded
-                let image_handle = load_job.images.get(image_path).unwrap();
-                // panic safety: all images have been checked to make sure they are finished loading
-                let image = textures.get(image_handle).unwrap();
-                image.clone().try_into_dynamic().expect("unsupported texture format")
-            },
-            BlockFaceTexture::Overlay {
-                top,
-                bottom,
-            } => {
-                // panic safety: texture key can only reference an image that has already been processed, and thus is already inserted in the map
-                let top_image = image_data_map.get(top).unwrap();
-                let mut bottom_image = image_data_map.get(bottom).unwrap().clone();
-
-                overlay(&mut bottom_image, top_image, 0, 0);
-
-                bottom_image
-            }
-        };
-
-        image_data_map.insert(texture_key, image_data);
-    }
+    let image_data_map= load_job.texture_builder
+        .generate_image_data(&load_job.images, &textures);
 
     // a map of texture keys to their corresponding uv data
     let mut uv_data_map = HashMap::new();
