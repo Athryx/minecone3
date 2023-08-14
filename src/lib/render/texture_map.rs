@@ -186,44 +186,39 @@ pub fn generate_texture_map(
 
     // inserts the image iat the given index into the texture map
     // returns the texture uv data for the inserted image
-    // NOTE: image needs to be explicitly typed here because for some reason ommitting the type causes ownership error
-    let mut insert_texture = |index: usize, image: &DynamicImage| {
-        let x = index as u32 % TEXTURE_MAP_SIZE;
-        let y = index as u32 / TEXTURE_MAP_SIZE;
+    let mut insert_index = 0;
+    let mut insert_texture = |image| {
+        let x = insert_index as u32 % TEXTURE_MAP_SIZE;
+        let y = insert_index as u32 / TEXTURE_MAP_SIZE;
 
         texture_map.copy_from(image, x * TEXTURE_SIZE, y * TEXTURE_SIZE)
             .expect("could not stitch texture map");
+
+        insert_index += 1;
 
         let uv_base = Vec2::new(x as f32 / TEXTURE_MAP_SIZE as f32, y as f32 / TEXTURE_MAP_SIZE as f32);
 
         TextureUvData {
             uv_base,
-            texture_map_index: index,
+            texture_map_index: insert_index,
         }
     };
 
     // a map of texture keys to the image data they represent
-    let mut image_data_map = HashMap::new();
-    // a map of texture keys to their corresponding uv data
-    let mut uv_data_map = HashMap::new();
+    let mut image_data_map: HashMap<TextureKey, DynamicImage> = HashMap::new();
 
     // generate texture map
     for (i, texture) in load_job.texture_builder.textures.iter().enumerate() {
         // a texture key is always the textures index in the array
         let texture_key = TextureKey(i);
 
-        match texture {
+        let image_data = match texture {
             BlockFaceTexture::Image(image_path) => {
                 // panic safety: if this texture exists, it should have been loaded
                 let image_handle = load_job.images.get(image_path).unwrap();
                 // panic safety: all images have been checked to make sure they are finished loading
                 let image = textures.get(image_handle).unwrap();
-                let dynamic_image = image.clone().try_into_dynamic().expect("unsupported texture format");
-
-                let uv_base = insert_texture(i, &dynamic_image);
-                uv_data_map.insert(texture_key, uv_base);
-
-                image_data_map.insert(texture_key, dynamic_image);
+                image.clone().try_into_dynamic().expect("unsupported texture format")
             },
             BlockFaceTexture::Overlay {
                 top,
@@ -235,28 +230,15 @@ pub fn generate_texture_map(
 
                 overlay(&mut bottom_image, top_image, 0, 0);
 
-                let uv_base = insert_texture(i, &bottom_image);
-                uv_data_map.insert(texture_key, uv_base);
-
-                image_data_map.insert(texture_key, bottom_image);
+                bottom_image
             }
-        }
+        };
+
+        image_data_map.insert(texture_key, image_data);
     }
 
-    let mut texture_map = Image::from_dynamic(texture_map, true);
-    texture_map.sampler_descriptor = ImageSampler::Descriptor(SamplerDescriptor {
-        address_mode_u: AddressMode::ClampToEdge,
-        address_mode_v: AddressMode::ClampToEdge,
-        address_mode_w: AddressMode::ClampToEdge,
-        mag_filter: FilterMode::Nearest,
-        min_filter: FilterMode::Nearest,
-        ..Default::default()
-    });
-
-    let block_material = materials.add(BlockMaterial {
-        texture_map: textures.add(texture_map),
-    });
-    commands.insert_resource(GlobalBlockMaterial(block_material));
+    // a map of texture keys to their corresponding uv data
+    let mut uv_data_map = HashMap::new();
 
     // generate block models uv
     let mut block_models_uv = Vec::new();
@@ -269,7 +251,11 @@ pub fn generate_texture_map(
         for (i, face) in model.faces.iter().enumerate() {
             match face {
                 BlockFace::Full(texture_key) => {
-                    let uv_data = uv_data_map.get(texture_key).unwrap();
+                    let uv_data = uv_data_map.entry(*texture_key)
+                        .or_insert_with(|| {
+                            let image = image_data_map.get(texture_key).unwrap();
+                            insert_texture(image)
+                        });
     
                     uv_faces[i].face_type = BlockFaceType::Full(*uv_data);
                 },
@@ -286,6 +272,22 @@ pub fn generate_texture_map(
     }
 
     BLOCK_MODELS.set(block_models_uv).expect("block models already initialized");
+
+    // generate texture map from image
+    let mut texture_map = Image::from_dynamic(texture_map, true);
+    texture_map.sampler_descriptor = ImageSampler::Descriptor(SamplerDescriptor {
+        address_mode_u: AddressMode::ClampToEdge,
+        address_mode_v: AddressMode::ClampToEdge,
+        address_mode_w: AddressMode::ClampToEdge,
+        mag_filter: FilterMode::Nearest,
+        min_filter: FilterMode::Nearest,
+        ..Default::default()
+    });
+
+    let block_material = materials.add(BlockMaterial {
+        texture_map: textures.add(texture_map),
+    });
+    commands.insert_resource(GlobalBlockMaterial(block_material));
 
     commands.entity(load_job_id).despawn();
 }

@@ -1,8 +1,13 @@
 use std::sync::OnceLock;
 
+use rand::SeedableRng;
+use rand::rngs::StdRng;
+
 use crate::blocks::{BlockStorage, BlockType};
 use crate::world::{ChunkData, CHUNK_SIZE};
 use crate::types::*;
+
+mod biomes;
 
 static WORLDGEN: OnceLock<Worldgen> = OnceLock::new();
 
@@ -21,6 +26,9 @@ impl Worldgen {
     }
 
     fn new(seed: u64) -> Self {
+        // used to generate the seeds for all noise maps
+        let seed_rng = StdRng::seed_from_u64(seed);
+
         Worldgen {
             seed,
         }
