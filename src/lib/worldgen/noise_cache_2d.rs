@@ -15,12 +15,7 @@ impl NoiseCache2d {
         if let Some(data) = self.cached_data[block_pos_local.x as usize][block_pos_local.z as usize] {
             data
         } else {
-            let sample_pos = [
-                block_pos.x as f64 + 0.5,
-                block_pos.z as f64 + 0.5,
-            ];
-
-            let data = noise.get(sample_pos);
+            let data = noise.get(block_pos.as_noise_point_2d());
             self.cached_data[block_pos_local.x as usize][block_pos_local.z as usize] = Some(data);
             data
         }

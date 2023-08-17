@@ -147,6 +147,14 @@ impl BlockPos {
             size,
         }
     }
+
+    pub fn as_noise_point_2d(&self) -> [f64; 2] {
+        [self.0.x as f64, self.0.z as f64]
+    }
+
+    pub fn as_noise_point_3d(&self) -> [f64; 3] {
+        [self.0.x as f64, self.0.y as f64, self.0.z as f64]
+    }
 }
 
 impl Index<VecAxis> for BlockPos {

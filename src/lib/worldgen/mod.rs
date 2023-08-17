@@ -1,6 +1,5 @@
 use std::sync::OnceLock;
 
-use noise::OpenSimplex;
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 
@@ -61,7 +60,8 @@ impl Worldgen {
     pub fn generate_chunk(&self, chunk_pos: ChunkPos) -> ChunkData {
         let mut blocks = BlockStorage::default();
 
-        let mut biome_noise_cache = BiomeNoiseCache::default();
+        let mut biome_noise_cache = Box::new(BiomeNoiseCache::default());
+        let mut height_noise = Box::new(NoiseCache2d::default());
 
         for x in 0..CHUNK_SIZE {
             for y in 0..CHUNK_SIZE {
@@ -72,7 +72,7 @@ impl Worldgen {
                     let biome_conditions = self.biome_noise.get(block_pos, &mut biome_noise_cache);
                     let biome = self.get_biome(biome_conditions);
 
-                    let height = biome.get_height(block_pos);
+                    let height = biome.get_height(block_pos, &mut height_noise);
                     let depth = block_pos.y - height;
 
                     blocks.new_block(local_block_pos, biome.layers().get_block_at_depth(depth));

@@ -11,6 +11,8 @@ mod dirt;
 use dirt::Dirt;
 mod grass;
 use grass::Grass;
+mod stone;
+use stone::Stone;
 
 const BLOCK_ID_MASK: u32 = 0xfff;
 const INLINE_BLOCK_HP_MASK: u32 = 0xfff000;
@@ -161,6 +163,7 @@ register_blocks! {
         Air,
         Dirt,
         Grass,
+        Stone,
     },
     extended {
         ,

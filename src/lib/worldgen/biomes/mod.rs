@@ -1,5 +1,5 @@
 use bevy::prelude::Vec4;
-use noise::OpenSimplex;
+use noise::{OpenSimplex, NoiseFn};
 use strum::EnumIter;
 use rand::{RngCore, rngs::StdRng};
 use derive_more::Sub;
@@ -100,13 +100,13 @@ impl BiomeNoiseMap {
 }
 
 pub trait BiomeGen: Debug {
-    fn from_seed(seed: u64) -> Self;
+    fn from_seed(seed_rng: &mut StdRng) -> Self;
 
     fn biome_conditions() -> BiomeConditions;
     fn layers() -> BiomeLayers;
 
     /// Gets the height of the surface at the given block position
-    fn get_height(&self, block: BlockPos) -> i32;
+    fn get_height(&self, block: BlockPos, cache: &mut NoiseCache2d) -> i32;
 }
 
 macro_rules! register_biome {
@@ -151,10 +151,10 @@ macro_rules! register_biome {
                 }
             }
 
-            pub fn get_height(&self, block: BlockPos) -> i32 {
+            pub fn get_height(&self, block: BlockPos, cache: &mut NoiseCache2d) -> i32 {
                 match self {
                     $(
-                        Biome::$biomes(biome) => biome.get_height(block),
+                        Biome::$biomes(biome) => biome.get_height(block, cache),
                     )*
                 }
             }
@@ -167,7 +167,7 @@ macro_rules! register_biome {
             let mut out = Vec::new();
 
             $(
-                out.push(Biome::$biomes($biomes::from_seed(seed_rng.next_u64())));
+                out.push(Biome::$biomes($biomes::from_seed(seed_rng)));
             )*
 
             out
